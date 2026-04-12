@@ -2,25 +2,20 @@ package me.plugin.firma;
 
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.Bukkit;
+import org.bukkit.command.*;
 import org.bukkit.entity.Player;
-import org.bukkit.command.CommandExecutor;
 import org.bukkit.event.Listener;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.configuration.file.FileConfiguration;
 
-import java.io.File;
 import java.util.*;
 
 public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener {
 
-    private static Economy econ;
+    private static Economy econ = null;
 
     private final Map<String, Company> companies = new HashMap<>();
     private final Map<UUID, String> invites = new HashMap<>();
-
-    private File file;
-    private FileConfiguration data;
 
     private double createPrice;
     private int salaryInterval;
@@ -31,12 +26,9 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
 
         saveDefaultConfig();
 
-        createPrice = getConfig().getDouble("company-create-price", 1000);
-        salaryInterval = getConfig().getInt("salary.interval-seconds", 60);
-        salaryAmount = getConfig().getDouble("salary.amount-per-player", 100);
-
-        setupFile();
-        loadCompanies();
+        createPrice = getConfig().getDouble("company-create-price");
+        salaryInterval = getConfig().getInt("salary.interval-seconds");
+        salaryAmount = getConfig().getDouble("salary.amount-per-player");
 
         if (!setupEconomy()) {
             getLogger().severe("Vault nenalezen!");
@@ -46,17 +38,128 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
 
         startSalaryTask();
 
-        getCommand("firma").setExecutor(this);
+        // 🔥 FIX: kontrola commandu
+        if (getCommand("firma") == null) {
+            getLogger().severe("COMMAND /firma není registrovaný v plugin.yml!");
+        } else {
+            getCommand("firma").setExecutor(this);
+            getLogger().info("Command /firma úspěšně napojen.");
+        }
+
         Bukkit.getPluginManager().registerEvents(this, this);
     }
 
-    // ===== ECONOMY =====
-    private boolean setupEconomy() {
-        if (getServer().getPluginManager().getPlugin("Vault") == null) {
-            return false;
+    // ===== COMMAND HANDLER =====
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("Pouze hráč může použít tento příkaz.");
+            return true;
         }
-        econ = getServer().getServicesManager().getRegistration(Economy.class).getProvider();
-        return econ != null;
+
+        Player player = (Player) sender;
+
+        // /firma
+        if (args.length == 0) {
+            player.sendMessage("§6/firma create <název>");
+            player.sendMessage("§6/firma invite <hráč>");
+            return true;
+        }
+
+        // /firma create
+        if (args[0].equalsIgnoreCase("create")) {
+
+            if (args.length < 2) {
+                player.sendMessage("§cZadej název firmy!");
+                return true;
+            }
+
+            String name = args[1].toLowerCase();
+
+            if (companies.containsKey(name)) {
+                player.sendMessage("§cFirma už existuje!");
+                return true;
+            }
+
+            if (!econ.has(player, createPrice)) {
+                player.sendMessage("§cNemáš dost peněz!");
+                return true;
+            }
+
+            econ.withdrawPlayer(player, createPrice);
+
+            Company company = new Company(name, player.getUniqueId());
+            companies.put(name, company);
+
+            player.sendMessage("§aFirma vytvořena: " + name);
+            return true;
+        }
+
+        // /firma invite
+        if (args[0].equalsIgnoreCase("invite")) {
+
+            if (args.length < 2) {
+                player.sendMessage("§cZadej hráče!");
+                return true;
+            }
+
+            Player target = Bukkit.getPlayer(args[1]);
+
+            if (target == null) {
+                player.sendMessage("§cHráč není online!");
+                return true;
+            }
+
+            String companyName = getPlayerCompany(player.getUniqueId());
+
+            if (companyName == null) {
+                player.sendMessage("§cNejsi ve firmě!");
+                return true;
+            }
+
+            invites.put(target.getUniqueId(), companyName);
+
+            target.sendMessage("§aByl jsi pozván do firmy: " + companyName);
+            target.sendMessage("§7Použij /firma accept");
+
+            player.sendMessage("§aPozvánka odeslána.");
+            return true;
+        }
+
+        // /firma accept
+        if (args[0].equalsIgnoreCase("accept")) {
+
+            if (!invites.containsKey(player.getUniqueId())) {
+                player.sendMessage("§cNemáš žádnou pozvánku!");
+                return true;
+            }
+
+            String companyName = invites.remove(player.getUniqueId());
+            Company company = companies.get(companyName);
+
+            if (company == null) {
+                player.sendMessage("§cFirma neexistuje.");
+                return true;
+            }
+
+            company.members.put(player.getUniqueId(), "MEMBER");
+            player.sendMessage("§aPřipojil ses do firmy: " + companyName);
+            return true;
+        }
+
+        player.sendMessage("§cNeznámý příkaz.");
+        return true;
+    }
+
+    // ===== HELPER =====
+    private String getPlayerCompany(UUID uuid) {
+        for (Company c : companies.values()) {
+            if (c.members.containsKey(uuid)) {
+                return c.name;
+            }
+        }
+        return null;
     }
 
     // ===== SALARY TASK =====
@@ -65,13 +168,13 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
             @Override
             public void run() {
 
-                for (Company c : new ArrayList<>(companies.values())) {
+                for (Company c : companies.values()) {
 
                     for (UUID uuid : c.members.keySet()) {
 
                         Player p = Bukkit.getPlayer(uuid);
-                        if (p == null) continue;
 
+                        if (p == null) continue;
                         if (c.balance < salaryAmount) continue;
 
                         econ.depositPlayer(p, salaryAmount);
@@ -80,35 +183,25 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
                         c.addXP(5);
                     }
                 }
-
-                saveCompanies();
             }
-        }.runTaskTimer(this, 0L, salaryInterval * 20L);
+        }.runTaskTimer(this, 0, salaryInterval * 20L);
     }
 
-    // ===== FILE SYSTEM (placeholder – musíš mít svoje implementace) =====
-    private void setupFile() {
-        file = new File(getDataFolder(), "companies.yml");
-        if (!file.exists()) {
-            file.getParentFile().mkdirs();
-            saveResource("companies.yml", false);
+    // ===== ECONOMY =====
+    private boolean setupEconomy() {
+        if (getServer().getPluginManager().getPlugin("Vault") == null) {
+            return false;
         }
-        data = getConfig();
+        var rsp = getServer().getServicesManager().getRegistration(Economy.class);
+        if (rsp == null) return false;
+        econ = rsp.getProvider();
+        return econ != null;
     }
 
-    private void loadCompanies() {
-        // TODO: tvoje load logika
-    }
-
-    private void saveCompanies() {
-        // TODO: tvoje save logika
-    }
-
-    // ===== COMPANY MODEL =====
+    // ===== COMPANY =====
     static class Company {
-
         String name;
-        Map<UUID, Role> members = new HashMap<>();
+        Map<UUID, String> members = new HashMap<>();
         double balance = 0;
 
         int level = 1;
@@ -116,9 +209,8 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
 
         Company(String name, UUID owner) {
             this.name = name;
-            if (owner != null) {
-                members.put(owner, Role.OWNER);
-            }
+            if (owner != null)
+                members.put(owner, "OWNER");
         }
 
         void addXP(int amount) {
@@ -131,10 +223,4 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
             }
         }
     }
-
-    enum Role {
-        OWNER,
-        ADMIN,
-        MEMBER
-    }
-}
+            }
