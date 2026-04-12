@@ -13,6 +13,10 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 
 import net.milkbowl.vault.economy.Economy;
 
+import org.bukkit.configuration.file.*;
+
+import java.io.File;
+import java.io.IOException;
 import java.util.*;
 
 public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener {
@@ -22,6 +26,9 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
     private final Map<String, Company> companies = new HashMap<>();
     private final Map<UUID, String> invites = new HashMap<>();
 
+    private File file;
+    private FileConfiguration data;
+
     private double createPrice;
 
     @Override
@@ -29,6 +36,9 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
 
         saveDefaultConfig();
         createPrice = getConfig().getDouble("company-create-price");
+
+        setupFile();
+        loadCompanies();
 
         if (!setupEconomy()) {
             getLogger().severe("Vault nenalezen!");
@@ -38,6 +48,71 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
 
         getCommand("firma").setExecutor(this);
         Bukkit.getPluginManager().registerEvents(this, this);
+    }
+
+    @Override
+    public void onDisable() {
+        saveCompanies();
+    }
+
+    // ===== FILE =====
+    private void setupFile() {
+        file = new File(getDataFolder(), "companies.yml");
+        if (!file.exists()) {
+            file.getParentFile().mkdirs();
+            saveResource("companies.yml", false);
+        }
+        data = YamlConfiguration.loadConfiguration(file);
+    }
+
+    // ===== SAVE =====
+    private void saveCompanies() {
+        for (String name : companies.keySet()) {
+            Company c = companies.get(name);
+
+            data.set(name + ".balance", c.balance);
+            data.set(name + ".level", c.level);
+            data.set(name + ".xp", c.xp);
+
+            List<String> members = new ArrayList<>();
+            for (UUID uuid : c.members.keySet()) {
+                members.add(uuid.toString() + ":" + c.members.get(uuid));
+            }
+
+            data.set(name + ".members", members);
+        }
+
+        try {
+            data.save(file);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    // ===== LOAD =====
+    private void loadCompanies() {
+        if (data.getKeys(false) == null) return;
+
+        for (String name : data.getKeys(false)) {
+
+            Company c = new Company(name, null);
+
+            c.balance = data.getDouble(name + ".balance");
+            c.level = data.getInt(name + ".level");
+            c.xp = data.getInt(name + ".xp");
+
+            List<String> members = data.getStringList(name + ".members");
+
+            for (String s : members) {
+                String[] split = s.split(":");
+                UUID uuid = UUID.fromString(split[0]);
+                String role = split[1];
+
+                c.members.put(uuid, role);
+            }
+
+            companies.put(name, c);
+        }
     }
 
     private boolean setupEconomy() {
@@ -83,6 +158,8 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
             econ.withdrawPlayer(p, createPrice);
 
             companies.put(name, new Company(name, p.getUniqueId()));
+            saveCompanies();
+
             p.sendMessage("§aFirma vytvořena!");
         }
 
@@ -98,7 +175,6 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
     private void sendTop(Player p) {
 
         List<Company> list = new ArrayList<>(companies.values());
-
         list.sort((a, b) -> Double.compare(b.balance, a.balance));
 
         p.sendMessage("§6=== TOP FIREM ===");
@@ -106,7 +182,6 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
         int i = 1;
         for (Company c : list) {
             p.sendMessage("§e" + i + ". §f" + c.name + " §7- " + c.balance + "$");
-
             if (i++ >= 10) break;
         }
     }
@@ -132,7 +207,6 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
         p.openInventory(inv);
     }
 
-    // ===== UTILS =====
     private Company getCompany(Player p) {
         for (Company c : companies.values()) {
             if (c.members.containsKey(p.getUniqueId())) return c;
@@ -143,24 +217,4 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
     private ItemStack createItem(Material m, String name, String... lore) {
         ItemStack i = new ItemStack(m);
         ItemMeta im = i.getItemMeta();
-        im.setDisplayName(name);
-        im.setLore(Arrays.asList(lore));
-        i.setItemMeta(im);
-        return i;
-    }
-
-    // ===== COMPANY =====
-    static class Company {
-        String name;
-        Map<UUID, String> members = new HashMap<>();
-        double balance = 0;
-
-        int level = 1;
-        int xp = 0;
-
-        Company(String name, UUID owner) {
-            this.name = name;
-            members.put(owner, "OWNER");
-        }
-    }
-}
+        im.setDisplay
