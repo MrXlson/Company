@@ -1,10 +1,113 @@
-firma:
-  create-price: 1000
-  withdraw-amount: 100
-  salary: 50
-  salary-interval: 600 # v sekundách
+# =========================
+#   FIRMA PLUGIN CONFIG
+# =========================
 
+# 💰 Cena za vytvoření firmy
+company-create-price: 500000
+
+
+# =========================
+# 💰 PLATY (SALARY SYSTEM)
+# =========================
+salary:
+  # jak často se vyplácí (sekundy)
+  interval-seconds: 300
+
+  # základní plat
+  base-amount: 50
+
+  # násobič podle role
+  role-multipliers:
+    OWNER: 2.0
+    MANAGER: 1.5
+    EMPLOYEE: 1.0
+
+  # musí být hráč online
+  online-only: true
+
+  # minimální peníze firmy pro výplatu
+  min-company-balance: 100
+
+
+# =========================
+# 📈 LEVEL SYSTEM
+# =========================
+levels:
+  # XP potřebné = level * multiplier
+  xp-multiplier: 100
+
+  # odměna při level up
+  level-reward-money: 500
+
+  # bonus income podle levelu
+  income-bonus-per-level: 0.05
+
+
+# =========================
+# 🧠 XP SYSTEM
+# =========================
+xp:
+  # za pozvání hráče
+  invite: 50
+
+  # za výplatu
+  salary: 5
+
+  # budoucí (můžeš rozšířit)
+  kill-mob: 2
+  break-block: 1
+
+
+# =========================
+# 🏆 LEADERBOARD
+# =========================
+leaderboard:
+  # kolik firem zobrazit
+  top-size: 10
+
+  # podle čeho řadit (balance / level)
+  sort-by: balance
+
+
+# =========================
+# ⚙️ FIRMA LIMITS
+# =========================
+limits:
+  # max členů firmy
+  max-members: 10
+
+  # max firem na server (0 = neomezeno)
+  max-companies: 0
+
+
+# =========================
+# 🛡️ ANTI-AFK
+# =========================
+anti-afk:
+  enabled: true
+
+  # čas bez pohybu (sekundy)
+  max-afk-time: 60
+
+
+# =========================
+# 🎮 GUI
+# =========================
+gui:
+  title-main: "§8Firma"
+  title-members: "§8Zaměstnanci"
+  title-invite: "§8Pozvánka"
+
+
+# =========================
+# 🔔 ZPRÁVY
+# =========================
 messages:
-  no-money: "&cNemáš dost peněz!"
-  no-company: "&cNemáš firmu!"
-  created: "&aFirma vytvořena!"
+  no-money: "§cNemáš dost peněz!"
+  company-created: "§aFirma vytvořena!"
+  no-permission: "§cNemáš práva!"
+  invite-sent: "§aPozvánka odeslána!"
+  invite-received: "§eByl jsi pozván do firmy!"
+  joined-company: "§aPřipojil jsi se do firmy!"
+  left-company: "§cOpustil jsi firmu!"
+  kicked: "§cByl jsi vyhozen z firmy!"
