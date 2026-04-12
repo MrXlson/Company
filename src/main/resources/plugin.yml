@@ -1,0 +1,8 @@
+name: FirmaPlugin
+version: 1.0
+main: me.plugin.firma.FirmaPlugin
+api-version: 1.20
+
+commands:
+  firma:
+    description: Firma system
