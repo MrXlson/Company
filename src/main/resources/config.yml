@@ -1,0 +1,10 @@
+firma:
+  create-price: 1000
+  withdraw-amount: 100
+  salary: 50
+  salary-interval: 600 # v sekundách
+
+messages:
+  no-money: "&cNemáš dost peněz!"
+  no-company: "&cNemáš firmu!"
+  created: "&aFirma vytvořena!"
