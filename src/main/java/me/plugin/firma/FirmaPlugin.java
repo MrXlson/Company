@@ -25,7 +25,6 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
     public void onEnable() {
 
         saveDefaultConfig();
-
         setupEconomy();
 
         getCommand("firma").setExecutor(this);
@@ -52,7 +51,7 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
 
         switch (args[0].toLowerCase()) {
 
-            case "create":
+            case "create" -> {
                 if (args.length < 2) return true;
 
                 String name = args[1].toLowerCase();
@@ -66,10 +65,9 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
                 companies.put(name, newC);
 
                 p.sendMessage("§aFirma vytvořena!");
-                break;
+            }
 
-            case "invite":
-
+            case "invite" -> {
                 Player target = Bukkit.getPlayer(args[1]);
                 if (target == null) return true;
 
@@ -77,48 +75,18 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
                 invites.put(target.getUniqueId(), comp);
 
                 target.sendMessage("§aPozvánka do firmy!");
-                break;
+            }
 
-            case "accept":
+            case "accept" -> {
                 String compName = invites.remove(p.getUniqueId());
                 if (compName == null) return true;
 
                 Company co = companies.get(compName);
+                if (co == null) return true;
+
                 co.members.put(p.getUniqueId(), "MEMBER");
-
                 p.sendMessage("§aPřijat do firmy!");
-                break;
-
-            case "deposit":
-                double dep = Double.parseDouble(args[1]);
-                econ.withdrawPlayer(p, dep);
-                c.balance += dep;
-                break;
-
-            case "withdraw":
-                if (!c.isOwner(p.getUniqueId())) return true;
-
-                double w = Double.parseDouble(args[1]);
-                c.balance -= w;
-                econ.depositPlayer(p, w);
-                break;
-
-            case "rename":
-                if (!c.isOwner(p.getUniqueId())) return true;
-
-                String newName = args[1];
-                companies.remove(c.name);
-                c.name = newName;
-                companies.put(newName, c);
-                break;
-
-            case "transfer":
-                Player t = Bukkit.getPlayer(args[1]);
-                if (t == null) return true;
-
-                c.owner = t.getUniqueId();
-                c.members.put(t.getUniqueId(), "OWNER");
-                break;
+            }
         }
 
         return true;
@@ -144,24 +112,87 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
     @EventHandler
     public void onClick(InventoryClickEvent e) {
 
-        if (!e.getView().getTitle().contains("Firma Menu")) return;
+        if (!(e.getWhoClicked() instanceof Player p)) return;
 
-        e.setCancelled(true);
+        String title = e.getView().getTitle();
 
-        Player p = (Player) e.getWhoClicked();
-        Company c = getPlayerCompanyObj(p.getUniqueId());
+        // ===== MAIN MENU =====
+        if (title.equals("§6Firma Menu")) {
 
-        if (c == null || e.getCurrentItem() == null) return;
+            e.setCancelled(true);
 
-        switch (e.getCurrentItem().getType()) {
+            ItemStack item = e.getCurrentItem();
+            if (item == null || item.getType() == Material.AIR) return;
 
-            case PAPER -> openInviteGUI(p);
-            case PLAYER_HEAD -> showMembers(p, c);
-            case GOLD_INGOT -> p.sendMessage("§aBalance: " + c.balance);
-            case EXPERIENCE_BOTTLE -> p.sendMessage("§6Level: " + c.level);
-            case COMPARATOR -> openPercentGUI(p, c);
-            case DIAMOND_PICKAXE -> p.sendMessage("§dJob: " + c.job);
-            case BARRIER -> p.closeInventory();
+            Company c = getPlayerCompanyObj(p.getUniqueId());
+
+            switch (item.getType()) {
+
+                case PAPER -> openInviteGUI(p);
+
+                case PLAYER_HEAD -> {
+                    if (c != null) showMembers(p, c);
+                    else p.sendMessage("§cNemáš firmu!");
+                }
+
+                case GOLD_INGOT -> {
+                    if (c != null) p.sendMessage("§aBalance: " + c.balance);
+                }
+
+                case EXPERIENCE_BOTTLE -> {
+                    if (c != null) p.sendMessage("§6Level: " + c.level);
+                }
+
+                case COMPARATOR -> {
+                    if (c != null) openPercentGUI(p, c);
+                }
+
+                case DIAMOND_PICKAXE -> {
+                    if (c != null) p.sendMessage("§dJob: " + c.job);
+                }
+
+                case BARRIER -> p.closeInventory();
+            }
+        }
+
+        // ===== INVITE MENU =====
+        if (title.equals("§aInvite menu")) {
+
+            e.setCancelled(true);
+
+            ItemStack item = e.getCurrentItem();
+            if (item == null || item.getType() != Material.PLAYER_HEAD) return;
+
+            String targetName = item.getItemMeta().getDisplayName();
+            Player target = Bukkit.getPlayer(targetName);
+
+            if (target == null) {
+                p.sendMessage("§cHráč není online!");
+                return;
+            }
+
+            String comp = getPlayerCompany(p.getUniqueId());
+            if (comp == null) {
+                p.sendMessage("§cNemáš firmu!");
+                return;
+            }
+
+            invites.put(target.getUniqueId(), comp);
+            target.sendMessage("§aPozvánka do firmy!");
+            p.sendMessage("§aPozvánka odeslána!");
+        }
+
+        // ===== PERCENT MENU =====
+        if (title.equals("§c% nastavení")) {
+
+            e.setCancelled(true);
+
+            ItemStack item = e.getCurrentItem();
+            if (item == null || item.getType() != Material.COMPARATOR) return;
+
+            String percent = item.getItemMeta().getDisplayName();
+
+            p.sendMessage("§aNastaveno: " + percent);
         }
     }
 
@@ -172,7 +203,6 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
 
         int i = 0;
         for (Player pl : Bukkit.getOnlinePlayers()) {
-
             inv.setItem(i++, item(Material.PLAYER_HEAD, pl.getName(), "Klikni pro invite"));
         }
 
@@ -276,4 +306,4 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
             }
         }.runTaskTimer(this, 0, 20L * 60 * 60 * 24 * 30);
     }
-        }
+}
