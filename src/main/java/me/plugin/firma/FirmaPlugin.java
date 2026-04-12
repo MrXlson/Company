@@ -218,3 +218,5 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
         ItemStack i = new ItemStack(m);
         ItemMeta im = i.getItemMeta();
         im.setDisplay
+            }
+}
