@@ -12,7 +12,7 @@
 
     <name>Company</name>
 
-    <!-- REPO -->
+    <!-- REPOSITORIES -->
     <repositories>
         <repository>
             <id>papermc-repo</id>
@@ -42,9 +42,20 @@
         </dependency>
     </dependencies>
 
-    <!-- BUILD -->
+    <!-- BUILD FIX -->
     <build>
+
+        <!-- 🔥 DŮLEŽITÉ: aby se plugin.yml dostal do JAR -->
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>false</filtering>
+            </resource>
+        </resources>
+
         <plugins>
+
+            <!-- Java compiler -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -54,6 +65,7 @@
                     <target>21</target>
                 </configuration>
             </plugin>
+
         </plugins>
     </build>
 
