@@ -3,7 +3,6 @@ package me.plugin.firma;
 import org.bukkit.command.*;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.RegisteredServiceProvider;
 
 import net.milkbowl.vault.economy.Economy;
@@ -15,6 +14,7 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor {
     private static Economy econ = null;
 
     private Map<String, Company> companies = new HashMap<>();
+    private Map<UUID, String> invites = new HashMap<>();
 
     @Override
     public void onEnable() {
@@ -42,7 +42,6 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor {
         return econ != null;
     }
 
-    // ===== COMMAND SYSTEM =====
     @Override
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
 
@@ -54,11 +53,11 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor {
         Player p = (Player) sender;
 
         if (args.length == 0) {
-            p.sendMessage("§cPoužití: /firma create <název>");
+            p.sendMessage("§cPoužití: /firma <create|invite|join|balance|info>");
             return true;
         }
 
-        // /firma create <název>
+        // ===== CREATE =====
         if (args[0].equalsIgnoreCase("create")) {
 
             if (args.length < 2) {
@@ -89,7 +88,113 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor {
             return true;
         }
 
+        // ===== INVITE =====
+        if (args[0].equalsIgnoreCase("invite")) {
+
+            if (args.length < 2) {
+                p.sendMessage("§cPoužití: /firma invite <hráč>");
+                return true;
+            }
+
+            Company company = getPlayerCompany(p);
+
+            if (company == null) {
+                p.sendMessage("§cNejsi ve firmě!");
+                return true;
+            }
+
+            if (!company.getOwner().equals(p.getUniqueId())) {
+                p.sendMessage("§cPouze majitel může zvát!");
+                return true;
+            }
+
+            Player target = getServer().getPlayer(args[1]);
+
+            if (target == null) {
+                p.sendMessage("§cHráč není online!");
+                return true;
+            }
+
+            invites.put(target.getUniqueId(), company.getName());
+
+            target.sendMessage("§aByl jsi pozván do firmy: " + company.getName());
+            target.sendMessage("§7Použij /firma join " + company.getName());
+
+            p.sendMessage("§aPozvánka odeslána.");
+            return true;
+        }
+
+        // ===== JOIN =====
+        if (args[0].equalsIgnoreCase("join")) {
+
+            if (args.length < 2) {
+                p.sendMessage("§cPoužití: /firma join <firma>");
+                return true;
+            }
+
+            String name = args[1].toLowerCase();
+
+            if (!companies.containsKey(name)) {
+                p.sendMessage("§cFirma neexistuje!");
+                return true;
+            }
+
+            if (!invites.containsKey(p.getUniqueId()) || !invites.get(p.getUniqueId()).equals(name)) {
+                p.sendMessage("§cNemáš pozvánku!");
+                return true;
+            }
+
+            Company company = companies.get(name);
+            company.addEmployee(p.getUniqueId());
+
+            invites.remove(p.getUniqueId());
+
+            p.sendMessage("§aPřipojil ses do firmy: " + name);
+            return true;
+        }
+
+        // ===== BALANCE =====
+        if (args[0].equalsIgnoreCase("balance")) {
+
+            Company company = getPlayerCompany(p);
+
+            if (company == null) {
+                p.sendMessage("§cNejsi ve firmě!");
+                return true;
+            }
+
+            p.sendMessage("§aFirma má: §e" + company.getBalance() + "$");
+            return true;
+        }
+
+        // ===== INFO =====
+        if (args[0].equalsIgnoreCase("info")) {
+
+            Company company = getPlayerCompany(p);
+
+            if (company == null) {
+                p.sendMessage("§cNejsi ve firmě!");
+                return true;
+            }
+
+            p.sendMessage("§6=== Firma ===");
+            p.sendMessage("§eNázev: §f" + company.getName());
+            p.sendMessage("§eZaměstnanci: §f" + company.getEmployees().size());
+            p.sendMessage("§eBalance: §f" + company.getBalance() + "$");
+
+            return true;
+        }
+
         return true;
+    }
+
+    private Company getPlayerCompany(Player p) {
+        for (Company c : companies.values()) {
+            if (c.getOwner().equals(p.getUniqueId()) || c.getEmployees().contains(p.getUniqueId())) {
+                return c;
+            }
+        }
+        return null;
     }
 
     // ===== COMPANY CLASS =====
@@ -137,4 +242,4 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor {
             balance -= amount;
         }
     }
-}
+        }
