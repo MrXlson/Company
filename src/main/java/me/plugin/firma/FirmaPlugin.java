@@ -23,6 +23,9 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
     private final Map<UUID, String> playerCompany = new HashMap<>();
     private final Map<String, Double> companyMoney = new HashMap<>();
 
+    // 🔥 INVITES
+    private final Map<UUID, String> invites = new HashMap<>();
+
     @Override
     public void onEnable() {
         if (!setupEconomy()) {
@@ -59,6 +62,7 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
             return true;
         }
 
+        // CREATE
         if (args[0].equalsIgnoreCase("create")) {
             if (args.length < 2) return true;
 
@@ -88,6 +92,34 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
             p.sendMessage("§aFirma vytvořena!");
         }
 
+        // INVITE
+        if (args[0].equalsIgnoreCase("invite")) {
+            if (args.length < 2) return true;
+
+            if (!playerCompany.containsKey(p.getUniqueId())) {
+                p.sendMessage("§cNemáš firmu!");
+                return true;
+            }
+
+            String company = playerCompany.get(p.getUniqueId());
+
+            if (!owners.get(company).equals(p.getUniqueId())) {
+                p.sendMessage("§cNejsi majitel!");
+                return true;
+            }
+
+            Player target = Bukkit.getPlayer(args[1]);
+            if (target == null) {
+                p.sendMessage("§cHráč není online!");
+                return true;
+            }
+
+            invites.put(target.getUniqueId(), company);
+
+            target.sendMessage("§eByl jsi pozván do firmy!");
+            openInviteGUI(target);
+        }
+
         return true;
     }
 
@@ -104,14 +136,20 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
 
         Inventory inv = Bukkit.createInventory(null, 27, "§8Firma");
 
-        inv.setItem(11, createItem(Material.PAPER, "§eInfo",
-                "§7Firma: " + name,
-                "§7Peníze: " + money));
-
         inv.setItem(13, createItem(Material.GOLD_INGOT, "§6Balance",
                 "§7" + money + "$"));
 
         inv.setItem(15, createItem(Material.EMERALD, "§aVybrat 100$"));
+
+        p.openInventory(inv);
+    }
+
+    private void openInviteGUI(Player p) {
+
+        Inventory inv = Bukkit.createInventory(null, 27, "§8Pozvánka");
+
+        inv.setItem(11, createItem(Material.LIME_WOOL, "§aPřijmout"));
+        inv.setItem(15, createItem(Material.RED_WOOL, "§cOdmítnout"));
 
         p.openInventory(inv);
     }
@@ -121,30 +159,45 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
     public void onClick(InventoryClickEvent e) {
 
         if (!(e.getWhoClicked() instanceof Player)) return;
-
         Player p = (Player) e.getWhoClicked();
 
-        if (!e.getView().getTitle().equals("§8Firma")) return;
+        // Firma GUI
+        if (e.getView().getTitle().equals("§8Firma")) {
+            e.setCancelled(true);
 
-        e.setCancelled(true);
+            String name = playerCompany.get(p.getUniqueId());
 
-        if (!playerCompany.containsKey(p.getUniqueId())) return;
+            if (e.getSlot() == 15) {
+                double balance = companyMoney.getOrDefault(name, 0.0);
 
-        String name = playerCompany.get(p.getUniqueId());
+                if (balance < 100) return;
 
-        if (e.getSlot() == 15) {
-            double balance = companyMoney.getOrDefault(name, 0.0);
+                companyMoney.put(name, balance - 100);
+                econ.depositPlayer(p, 100);
 
-            if (balance < 100) {
-                p.sendMessage("§cFirma nemá peníze!");
-                return;
+                openGUI(p);
+            }
+        }
+
+        // Invite GUI
+        if (e.getView().getTitle().equals("§8Pozvánka")) {
+            e.setCancelled(true);
+
+            if (!invites.containsKey(p.getUniqueId())) return;
+
+            String company = invites.get(p.getUniqueId());
+
+            if (e.getSlot() == 11) {
+                playerCompany.put(p.getUniqueId(), company);
+                p.sendMessage("§aPřijal jsi pozvánku!");
             }
 
-            companyMoney.put(name, balance - 100);
-            econ.depositPlayer(p, 100);
+            if (e.getSlot() == 15) {
+                p.sendMessage("§cOdmítl jsi pozvánku!");
+            }
 
-            p.sendMessage("§aVybral jsi 100$!");
-            openGUI(p);
+            invites.remove(p.getUniqueId());
+            p.closeInventory();
         }
     }
 
