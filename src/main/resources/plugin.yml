@@ -1,8 +1,15 @@
 name: FirmaPlugin
 version: 1.0
 main: me.plugin.firma.FirmaPlugin
-api-version: 1.20
+api-version: 1.21
+
+depend: [Vault]
 
 commands:
   firma:
-    description: Firma system
+    description: Firma systém
+
+permissions:
+  firma.admin:
+    description: Admin přístup
+    default: op
