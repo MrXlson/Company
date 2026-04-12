@@ -1,17 +1,18 @@
 package me.plugin.firma;
 
 import net.milkbowl.vault.economy.Economy;
-import org.bukkit.Bukkit;
-import org.bukkit.Material;
+import org.bukkit.*;
 import org.bukkit.command.*;
-import org.bukkit.entity.Player;
+import org.bukkit.entity.*;
 import org.bukkit.event.*;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.*;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.configuration.file.*;
 
+import java.io.File;
 import java.util.*;
 
 public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener {
@@ -21,19 +22,106 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
     private final Map<String, Company> companies = new HashMap<>();
     private final Map<UUID, String> invites = new HashMap<>();
 
+    private File file;
+    private FileConfiguration data;
+
+    // ================= ENABLE =================
     @Override
     public void onEnable() {
 
-        saveDefaultConfig();
+        setupFile();
+        loadCompanies();
+
         setupEconomy();
 
         getCommand("firma").setExecutor(this);
         Bukkit.getPluginManager().registerEvents(this, this);
 
         startSalaryTask();
-        startMonthlyTax();
+        startAutoSave();
 
         getLogger().info("FirmaPlugin enabled");
+    }
+
+    // ================= FILE SYSTEM =================
+    private void setupFile() {
+        file = new File(getDataFolder(), "data.yml");
+
+        if (!file.exists()) {
+            file.getParentFile().mkdirs();
+            saveResource("data.yml", false);
+        }
+
+        data = YamlConfiguration.loadConfiguration(file);
+    }
+
+    private void saveCompanies() {
+
+        data.set("companies", null);
+
+        for (Company c : companies.values()) {
+
+            String path = "companies." + c.name;
+
+            data.set(path + ".owner", c.owner.toString());
+            data.set(path + ".balance", c.balance);
+            data.set(path + ".level", c.level);
+            data.set(path + ".xp", c.xp);
+
+            for (UUID u : c.members.keySet()) {
+                data.set(path + ".members." + u, c.members.get(u));
+                data.set(path + ".jobs." + u, c.jobs.getOrDefault(u, "NONE"));
+            }
+        }
+
+        try {
+            data.save(file);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void loadCompanies() {
+
+        if (!data.contains("companies")) return;
+
+        for (String name : data.getConfigurationSection("companies").getKeys(false)) {
+
+            String path = "companies." + name;
+
+            UUID owner = UUID.fromString(data.getString(path + ".owner"));
+
+            Company c = new Company(name, owner);
+
+            c.balance = data.getDouble(path + ".balance");
+            c.level = data.getInt(path + ".level");
+            c.xp = data.getInt(path + ".xp");
+
+            if (data.contains(path + ".members")) {
+                for (String u : data.getConfigurationSection(path + ".members").getKeys(false)) {
+                    c.members.put(UUID.fromString(u), data.getString(path + ".members." + u));
+                }
+            }
+
+            if (data.contains(path + ".jobs")) {
+                for (String u : data.getConfigurationSection(path + ".jobs").getKeys(false)) {
+                    c.jobs.put(UUID.fromString(u), data.getString(path + ".jobs." + u));
+                }
+            }
+
+            companies.put(name, c);
+        }
+    }
+
+    // ================= AUTO SAVE =================
+    private void startAutoSave() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                saveCompanies();
+                getLogger().info("Autosave done");
+            }
+        }.runTaskTimer(this, 20 * 300, 20 * 300);
     }
 
     // ================= COMMAND =================
@@ -42,7 +130,7 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
 
         if (!(sender instanceof Player p)) return true;
 
-        Company c = getPlayerCompanyObj(p.getUniqueId());
+        Company c = getCompany(p);
 
         if (args.length == 0) {
             openMainGUI(p, c);
@@ -52,196 +140,126 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
         switch (args[0].toLowerCase()) {
 
             case "create" -> {
-                if (args.length < 2) return true;
+                if (c != null) return true;
 
-                String name = args[1].toLowerCase();
+                Company nc = new Company(args[1], p.getUniqueId());
+                companies.put(args[1], nc);
 
-                if (companies.containsKey(name)) {
-                    p.sendMessage("§cFirma existuje!");
-                    return true;
-                }
-
-                Company newC = new Company(name, p.getUniqueId());
-                companies.put(name, newC);
-
+                saveCompanies();
                 p.sendMessage("§aFirma vytvořena!");
             }
 
-            case "invite" -> {
-                Player target = Bukkit.getPlayer(args[1]);
-                if (target == null) return true;
+            case "leave" -> {
+                if (c == null) return true;
+                if (c.isOwner(p)) return true;
 
-                String comp = getPlayerCompany(p.getUniqueId());
-                invites.put(target.getUniqueId(), comp);
+                c.members.remove(p.getUniqueId());
+                c.jobs.remove(p.getUniqueId());
 
-                target.sendMessage("§aPozvánka do firmy!");
+                saveCompanies();
+                p.sendMessage("§cOdešel jsi z firmy");
             }
 
-            case "accept" -> {
-                String compName = invites.remove(p.getUniqueId());
-                if (compName == null) return true;
+            case "top" -> openTopGUI(p);
 
-                Company co = companies.get(compName);
-                if (co == null) return true;
+            case "hologram" -> {
 
-                co.members.put(p.getUniqueId(), "MEMBER");
-                p.sendMessage("§aPřijat do firmy!");
+                List<Company> sorted = new ArrayList<>(companies.values());
+                sorted.sort((a, b) -> Double.compare(b.balance, a.balance));
+
+                Location loc = p.getLocation();
+                int i = 0;
+
+                for (Company comp : sorted) {
+
+                    if (i >= 5) break;
+
+                    ArmorStand as = (ArmorStand) p.getWorld().spawn(loc.clone().add(0, i * 0.3, 0), ArmorStand.class);
+
+                    as.setInvisible(true);
+                    as.setGravity(false);
+                    as.setCustomNameVisible(true);
+                    as.setCustomName("§e#" + (i + 1) + " §f" + comp.name + " §a" + comp.balance);
+
+                    i++;
+                }
             }
         }
 
         return true;
     }
 
-    // ================= MAIN GUI =================
+    // ================= GUI =================
     private void openMainGUI(Player p, Company c) {
 
         Inventory inv = Bukkit.createInventory(null, 45, "§6Firma Menu");
 
-        inv.setItem(10, item(Material.GOLD_INGOT, "§eZůstatek", "§a" + (c == null ? 0 : c.balance)));
-        inv.setItem(12, item(Material.PLAYER_HEAD, "§bČlenové", "Klikni"));
-        inv.setItem(14, item(Material.PAPER, "§aInvite", "Klikni"));
-        inv.setItem(16, item(Material.EXPERIENCE_BOTTLE, "§6Level", "§e" + (c == null ? 1 : c.level)));
-        inv.setItem(20, item(Material.COMPARATOR, "§c% Nastavení", "Klikni"));
-        inv.setItem(22, item(Material.DIAMOND_PICKAXE, "§dPráce", c == null ? "NONE" : c.job));
+        inv.setItem(10, item(Material.GOLD_INGOT, "§eBanka", ""));
+        inv.setItem(12, item(Material.PLAYER_HEAD, "§bČlenové", ""));
+        inv.setItem(14, item(Material.PAPER, "§aInvite", ""));
+        inv.setItem(16, item(Material.EXPERIENCE_BOTTLE, "§6Level", ""));
+        inv.setItem(18, item(Material.EMERALD, "§aTop", ""));
+        inv.setItem(20, item(Material.BEACON, "§dHologram", ""));
         inv.setItem(40, item(Material.BARRIER, "§cZavřít", ""));
+
+        p.openInventory(inv);
+    }
+
+    private void openTopGUI(Player p) {
+
+        Inventory inv = Bukkit.createInventory(null, 27, "§6TOP Firmy");
+
+        List<Company> sorted = new ArrayList<>(companies.values());
+        sorted.sort((a, b) -> Double.compare(b.balance, a.balance));
+
+        int i = 0;
+
+        for (Company c : sorted) {
+
+            ItemStack it = new ItemStack(Material.GOLD_BLOCK);
+            ItemMeta meta = it.getItemMeta();
+
+            meta.setDisplayName("§e#" + (i + 1) + " " + c.name);
+            meta.setLore(List.of("§aBalance: " + c.balance, "§6Level: " + c.level));
+
+            it.setItemMeta(meta);
+
+            inv.setItem(i++, it);
+
+            if (i >= 27) break;
+        }
 
         p.openInventory(inv);
     }
 
     // ================= CLICK =================
     @EventHandler
-    public void onClick(InventoryClickEvent e) {
+    public void click(InventoryClickEvent e) {
 
         if (!(e.getWhoClicked() instanceof Player p)) return;
 
-        String title = e.getView().getTitle();
+        String t = e.getView().getTitle();
+        ItemStack it = e.getCurrentItem();
 
-        // ===== MAIN MENU =====
-        if (title.equals("§6Firma Menu")) {
+        if (it == null) return;
 
-            e.setCancelled(true);
+        Company c = getCompany(p);
 
-            ItemStack item = e.getCurrentItem();
-            if (item == null || item.getType() == Material.AIR) return;
-
-            Company c = getPlayerCompanyObj(p.getUniqueId());
-
-            switch (item.getType()) {
-
-                case PAPER -> openInviteGUI(p);
-
-                case PLAYER_HEAD -> {
-                    if (c != null) showMembers(p, c);
-                    else p.sendMessage("§cNemáš firmu!");
-                }
-
-                case GOLD_INGOT -> {
-                    if (c != null) p.sendMessage("§aBalance: " + c.balance);
-                }
-
-                case EXPERIENCE_BOTTLE -> {
-                    if (c != null) p.sendMessage("§6Level: " + c.level);
-                }
-
-                case COMPARATOR -> {
-                    if (c != null) openPercentGUI(p, c);
-                }
-
-                case DIAMOND_PICKAXE -> {
-                    if (c != null) p.sendMessage("§dJob: " + c.job);
-                }
-
-                case BARRIER -> p.closeInventory();
-            }
-        }
-
-        // ===== INVITE MENU =====
-        if (title.equals("§aInvite menu")) {
+        if (t.equals("§6Firma Menu")) {
 
             e.setCancelled(true);
 
-            ItemStack item = e.getCurrentItem();
-            if (item == null || item.getType() != Material.PLAYER_HEAD) return;
+            switch (it.getType()) {
 
-            String targetName = item.getItemMeta().getDisplayName();
-            Player target = Bukkit.getPlayer(targetName);
+                case EMERALD -> openTopGUI(p);
 
-            if (target == null) {
-                p.sendMessage("§cHráč není online!");
-                return;
+                case BEACON -> p.performCommand("firma hologram");
             }
-
-            String comp = getPlayerCompany(p.getUniqueId());
-            if (comp == null) {
-                p.sendMessage("§cNemáš firmu!");
-                return;
-            }
-
-            invites.put(target.getUniqueId(), comp);
-            target.sendMessage("§aPozvánka do firmy!");
-            p.sendMessage("§aPozvánka odeslána!");
         }
 
-        // ===== PERCENT MENU =====
-        if (title.equals("§c% nastavení")) {
-
+        if (t.equals("§6TOP Firmy")) {
             e.setCancelled(true);
-
-            ItemStack item = e.getCurrentItem();
-            if (item == null || item.getType() != Material.COMPARATOR) return;
-
-            String percent = item.getItemMeta().getDisplayName();
-
-            p.sendMessage("§aNastaveno: " + percent);
         }
-    }
-
-    // ================= INVITE GUI =================
-    private void openInviteGUI(Player p) {
-
-        Inventory inv = Bukkit.createInventory(null, 27, "§aInvite menu");
-
-        int i = 0;
-        for (Player pl : Bukkit.getOnlinePlayers()) {
-            inv.setItem(i++, item(Material.PLAYER_HEAD, pl.getName(), "Klikni pro invite"));
-        }
-
-        p.openInventory(inv);
-    }
-
-    // ================= PERCENT GUI =================
-    private void openPercentGUI(Player p, Company c) {
-
-        Inventory inv = Bukkit.createInventory(null, 9, "§c% nastavení");
-
-        int[] vals = {10, 25, 50, 75, 90};
-
-        for (int i = 0; i < vals.length; i++) {
-            int v = vals[i];
-            inv.setItem(i, item(Material.COMPARATOR, v + "%", "Firma cut"));
-        }
-
-        p.openInventory(inv);
-    }
-
-    // ================= MEMBERS =================
-    private void showMembers(Player p, Company c) {
-
-        p.sendMessage("§bČlenové:");
-
-        c.members.forEach((u, r) -> {
-            p.sendMessage(" - " + Bukkit.getOfflinePlayer(u).getName() + " §7(" + r + ")");
-        });
-    }
-
-    // ================= ITEM =================
-    private ItemStack item(Material m, String name, String lore) {
-        ItemStack i = new ItemStack(m);
-        ItemMeta meta = i.getItemMeta();
-        meta.setDisplayName(name);
-        meta.setLore(List.of(lore));
-        i.setItemMeta(meta);
-        return i;
     }
 
     // ================= COMPANY =================
@@ -251,36 +269,40 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
         UUID owner;
 
         Map<UUID, String> members = new HashMap<>();
+        Map<UUID, String> jobs = new HashMap<>();
 
         double balance = 0;
-
         int level = 1;
-        String job = "NONE";
+        int xp = 0;
 
         Company(String name, UUID owner) {
             this.name = name;
             this.owner = owner;
+
             members.put(owner, "OWNER");
+            jobs.put(owner, "OWNER");
         }
 
-        boolean isOwner(UUID u) {
-            return owner.equals(u);
+        boolean isOwner(Player p) {
+            return owner.equals(p.getUniqueId());
         }
     }
 
     // ================= HELPERS =================
-    private String getPlayerCompany(UUID u) {
+    private Company getCompany(Player p) {
         for (Company c : companies.values()) {
-            if (c.members.containsKey(u)) return c.name;
+            if (c.members.containsKey(p.getUniqueId())) return c;
         }
         return null;
     }
 
-    private Company getPlayerCompanyObj(UUID u) {
-        for (Company c : companies.values()) {
-            if (c.members.containsKey(u)) return c;
-        }
-        return null;
+    private ItemStack item(Material m, String name, String lore) {
+        ItemStack i = new ItemStack(m);
+        ItemMeta meta = i.getItemMeta();
+        meta.setDisplayName(name);
+        meta.setLore(List.of(lore));
+        i.setItemMeta(meta);
+        return i;
     }
 
     private void setupEconomy() {
@@ -288,22 +310,31 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
         if (rsp != null) econ = rsp.getProvider();
     }
 
-    // ================= TASKS =================
+    // ================= SALARY =================
     private void startSalaryTask() {
         new BukkitRunnable() {
             @Override
             public void run() {
-                // future job system
+
+                for (Company c : companies.values()) {
+
+                    for (UUID u : c.members.keySet()) {
+
+                        Player p = Bukkit.getPlayer(u);
+                        if (p == null) continue;
+
+                        double pay = 50 + (c.level * 10);
+                        econ.depositPlayer(p, pay);
+
+                        c.xp += 10;
+
+                        if (c.xp >= c.level * 100) {
+                            c.xp = 0;
+                            c.level++;
+                        }
+                    }
+                }
             }
         }.runTaskTimer(this, 0, 20 * 60);
     }
-
-    private void startMonthlyTax() {
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                // tax system later
-            }
-        }.runTaskTimer(this, 0, 20L * 60 * 60 * 24 * 30);
-    }
-}
+        }
