@@ -2,9 +2,13 @@ package me.plugin.firma;
 
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.command.*;
 import org.bukkit.entity.Player;
-import org.bukkit.event.Listener;
+import org.bukkit.event.*;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.inventory.*;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
@@ -12,215 +16,264 @@ import java.util.*;
 
 public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener {
 
-    private static Economy econ = null;
+    private static Economy econ;
 
     private final Map<String, Company> companies = new HashMap<>();
     private final Map<UUID, String> invites = new HashMap<>();
-
-    private double createPrice;
-    private int salaryInterval;
-    private double salaryAmount;
 
     @Override
     public void onEnable() {
 
         saveDefaultConfig();
 
-        createPrice = getConfig().getDouble("company-create-price");
-        salaryInterval = getConfig().getInt("salary.interval-seconds");
-        salaryAmount = getConfig().getDouble("salary.amount-per-player");
+        setupEconomy();
 
-        if (!setupEconomy()) {
-            getLogger().severe("Vault nenalezen!");
-            getServer().getPluginManager().disablePlugin(this);
-            return;
-        }
+        getCommand("firma").setExecutor(this);
+        Bukkit.getPluginManager().registerEvents(this, this);
 
         startSalaryTask();
+        startMonthlyTax();
 
-        // 🔥 FIX: kontrola commandu
-        if (getCommand("firma") == null) {
-            getLogger().severe("COMMAND /firma není registrovaný v plugin.yml!");
-        } else {
-            getCommand("firma").setExecutor(this);
-            getLogger().info("Command /firma úspěšně napojen.");
-        }
-
-        Bukkit.getPluginManager().registerEvents(this, this);
+        getLogger().info("FirmaPlugin enabled");
     }
 
-    // ===== COMMAND HANDLER =====
+    // ================= COMMAND =================
     @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+    public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
 
-        if (!(sender instanceof Player)) {
-            sender.sendMessage("Pouze hráč může použít tento příkaz.");
-            return true;
-        }
+        if (!(sender instanceof Player p)) return true;
 
-        Player player = (Player) sender;
+        Company c = getPlayerCompanyObj(p.getUniqueId());
 
-        // /firma
         if (args.length == 0) {
-            player.sendMessage("§6/firma create <název>");
-            player.sendMessage("§6/firma invite <hráč>");
+            openMainGUI(p, c);
             return true;
         }
 
-        // /firma create
-        if (args[0].equalsIgnoreCase("create")) {
+        switch (args[0].toLowerCase()) {
 
-            if (args.length < 2) {
-                player.sendMessage("§cZadej název firmy!");
-                return true;
-            }
+            case "create":
+                if (args.length < 2) return true;
 
-            String name = args[1].toLowerCase();
+                String name = args[1].toLowerCase();
 
-            if (companies.containsKey(name)) {
-                player.sendMessage("§cFirma už existuje!");
-                return true;
-            }
+                if (companies.containsKey(name)) {
+                    p.sendMessage("§cFirma existuje!");
+                    return true;
+                }
 
-            if (!econ.has(player, createPrice)) {
-                player.sendMessage("§cNemáš dost peněz!");
-                return true;
-            }
+                Company newC = new Company(name, p.getUniqueId());
+                companies.put(name, newC);
 
-            econ.withdrawPlayer(player, createPrice);
+                p.sendMessage("§aFirma vytvořena!");
+                break;
 
-            Company company = new Company(name, player.getUniqueId());
-            companies.put(name, company);
+            case "invite":
 
-            player.sendMessage("§aFirma vytvořena: " + name);
-            return true;
+                Player target = Bukkit.getPlayer(args[1]);
+                if (target == null) return true;
+
+                String comp = getPlayerCompany(p.getUniqueId());
+                invites.put(target.getUniqueId(), comp);
+
+                target.sendMessage("§aPozvánka do firmy!");
+                break;
+
+            case "accept":
+                String compName = invites.remove(p.getUniqueId());
+                if (compName == null) return true;
+
+                Company co = companies.get(compName);
+                co.members.put(p.getUniqueId(), "MEMBER");
+
+                p.sendMessage("§aPřijat do firmy!");
+                break;
+
+            case "deposit":
+                double dep = Double.parseDouble(args[1]);
+                econ.withdrawPlayer(p, dep);
+                c.balance += dep;
+                break;
+
+            case "withdraw":
+                if (!c.isOwner(p.getUniqueId())) return true;
+
+                double w = Double.parseDouble(args[1]);
+                c.balance -= w;
+                econ.depositPlayer(p, w);
+                break;
+
+            case "rename":
+                if (!c.isOwner(p.getUniqueId())) return true;
+
+                String newName = args[1];
+                companies.remove(c.name);
+                c.name = newName;
+                companies.put(newName, c);
+                break;
+
+            case "transfer":
+                Player t = Bukkit.getPlayer(args[1]);
+                if (t == null) return true;
+
+                c.owner = t.getUniqueId();
+                c.members.put(t.getUniqueId(), "OWNER");
+                break;
         }
 
-        // /firma invite
-        if (args[0].equalsIgnoreCase("invite")) {
-
-            if (args.length < 2) {
-                player.sendMessage("§cZadej hráče!");
-                return true;
-            }
-
-            Player target = Bukkit.getPlayer(args[1]);
-
-            if (target == null) {
-                player.sendMessage("§cHráč není online!");
-                return true;
-            }
-
-            String companyName = getPlayerCompany(player.getUniqueId());
-
-            if (companyName == null) {
-                player.sendMessage("§cNejsi ve firmě!");
-                return true;
-            }
-
-            invites.put(target.getUniqueId(), companyName);
-
-            target.sendMessage("§aByl jsi pozván do firmy: " + companyName);
-            target.sendMessage("§7Použij /firma accept");
-
-            player.sendMessage("§aPozvánka odeslána.");
-            return true;
-        }
-
-        // /firma accept
-        if (args[0].equalsIgnoreCase("accept")) {
-
-            if (!invites.containsKey(player.getUniqueId())) {
-                player.sendMessage("§cNemáš žádnou pozvánku!");
-                return true;
-            }
-
-            String companyName = invites.remove(player.getUniqueId());
-            Company company = companies.get(companyName);
-
-            if (company == null) {
-                player.sendMessage("§cFirma neexistuje.");
-                return true;
-            }
-
-            company.members.put(player.getUniqueId(), "MEMBER");
-            player.sendMessage("§aPřipojil ses do firmy: " + companyName);
-            return true;
-        }
-
-        player.sendMessage("§cNeznámý příkaz.");
         return true;
     }
 
-    // ===== HELPER =====
-    private String getPlayerCompany(UUID uuid) {
+    // ================= MAIN GUI =================
+    private void openMainGUI(Player p, Company c) {
+
+        Inventory inv = Bukkit.createInventory(null, 45, "§6Firma Menu");
+
+        inv.setItem(10, item(Material.GOLD_INGOT, "§eZůstatek", "§a" + (c == null ? 0 : c.balance)));
+        inv.setItem(12, item(Material.PLAYER_HEAD, "§bČlenové", "Klikni"));
+        inv.setItem(14, item(Material.PAPER, "§aInvite", "Klikni"));
+        inv.setItem(16, item(Material.EXPERIENCE_BOTTLE, "§6Level", "§e" + (c == null ? 1 : c.level)));
+        inv.setItem(20, item(Material.COMPARATOR, "§c% Nastavení", "Klikni"));
+        inv.setItem(22, item(Material.DIAMOND_PICKAXE, "§dPráce", c == null ? "NONE" : c.job));
+        inv.setItem(40, item(Material.BARRIER, "§cZavřít", ""));
+
+        p.openInventory(inv);
+    }
+
+    // ================= CLICK =================
+    @EventHandler
+    public void onClick(InventoryClickEvent e) {
+
+        if (!e.getView().getTitle().contains("Firma Menu")) return;
+
+        e.setCancelled(true);
+
+        Player p = (Player) e.getWhoClicked();
+        Company c = getPlayerCompanyObj(p.getUniqueId());
+
+        if (c == null || e.getCurrentItem() == null) return;
+
+        switch (e.getCurrentItem().getType()) {
+
+            case PAPER -> openInviteGUI(p);
+            case PLAYER_HEAD -> showMembers(p, c);
+            case GOLD_INGOT -> p.sendMessage("§aBalance: " + c.balance);
+            case EXPERIENCE_BOTTLE -> p.sendMessage("§6Level: " + c.level);
+            case COMPARATOR -> openPercentGUI(p, c);
+            case DIAMOND_PICKAXE -> p.sendMessage("§dJob: " + c.job);
+            case BARRIER -> p.closeInventory();
+        }
+    }
+
+    // ================= INVITE GUI =================
+    private void openInviteGUI(Player p) {
+
+        Inventory inv = Bukkit.createInventory(null, 27, "§aInvite menu");
+
+        int i = 0;
+        for (Player pl : Bukkit.getOnlinePlayers()) {
+
+            inv.setItem(i++, item(Material.PLAYER_HEAD, pl.getName(), "Klikni pro invite"));
+        }
+
+        p.openInventory(inv);
+    }
+
+    // ================= PERCENT GUI =================
+    private void openPercentGUI(Player p, Company c) {
+
+        Inventory inv = Bukkit.createInventory(null, 9, "§c% nastavení");
+
+        int[] vals = {10, 25, 50, 75, 90};
+
+        for (int i = 0; i < vals.length; i++) {
+            int v = vals[i];
+            inv.setItem(i, item(Material.COMPARATOR, v + "%", "Firma cut"));
+        }
+
+        p.openInventory(inv);
+    }
+
+    // ================= MEMBERS =================
+    private void showMembers(Player p, Company c) {
+
+        p.sendMessage("§bČlenové:");
+
+        c.members.forEach((u, r) -> {
+            p.sendMessage(" - " + Bukkit.getOfflinePlayer(u).getName() + " §7(" + r + ")");
+        });
+    }
+
+    // ================= ITEM =================
+    private ItemStack item(Material m, String name, String lore) {
+        ItemStack i = new ItemStack(m);
+        ItemMeta meta = i.getItemMeta();
+        meta.setDisplayName(name);
+        meta.setLore(List.of(lore));
+        i.setItemMeta(meta);
+        return i;
+    }
+
+    // ================= COMPANY =================
+    static class Company {
+
+        String name;
+        UUID owner;
+
+        Map<UUID, String> members = new HashMap<>();
+
+        double balance = 0;
+
+        int level = 1;
+        String job = "NONE";
+
+        Company(String name, UUID owner) {
+            this.name = name;
+            this.owner = owner;
+            members.put(owner, "OWNER");
+        }
+
+        boolean isOwner(UUID u) {
+            return owner.equals(u);
+        }
+    }
+
+    // ================= HELPERS =================
+    private String getPlayerCompany(UUID u) {
         for (Company c : companies.values()) {
-            if (c.members.containsKey(uuid)) {
-                return c.name;
-            }
+            if (c.members.containsKey(u)) return c.name;
         }
         return null;
     }
 
-    // ===== SALARY TASK =====
+    private Company getPlayerCompanyObj(UUID u) {
+        for (Company c : companies.values()) {
+            if (c.members.containsKey(u)) return c;
+        }
+        return null;
+    }
+
+    private void setupEconomy() {
+        var rsp = getServer().getServicesManager().getRegistration(Economy.class);
+        if (rsp != null) econ = rsp.getProvider();
+    }
+
+    // ================= TASKS =================
     private void startSalaryTask() {
         new BukkitRunnable() {
             @Override
             public void run() {
-
-                for (Company c : companies.values()) {
-
-                    for (UUID uuid : c.members.keySet()) {
-
-                        Player p = Bukkit.getPlayer(uuid);
-
-                        if (p == null) continue;
-                        if (c.balance < salaryAmount) continue;
-
-                        econ.depositPlayer(p, salaryAmount);
-                        c.balance -= salaryAmount;
-
-                        c.addXP(5);
-                    }
-                }
+                // future job system
             }
-        }.runTaskTimer(this, 0, salaryInterval * 20L);
+        }.runTaskTimer(this, 0, 20 * 60);
     }
 
-    // ===== ECONOMY =====
-    private boolean setupEconomy() {
-        if (getServer().getPluginManager().getPlugin("Vault") == null) {
-            return false;
-        }
-        var rsp = getServer().getServicesManager().getRegistration(Economy.class);
-        if (rsp == null) return false;
-        econ = rsp.getProvider();
-        return econ != null;
-    }
-
-    // ===== COMPANY =====
-    static class Company {
-        String name;
-        Map<UUID, String> members = new HashMap<>();
-        double balance = 0;
-
-        int level = 1;
-        int xp = 0;
-
-        Company(String name, UUID owner) {
-            this.name = name;
-            if (owner != null)
-                members.put(owner, "OWNER");
-        }
-
-        void addXP(int amount) {
-            xp += amount;
-
-            if (xp >= level * 100) {
-                xp = 0;
-                level++;
-                balance += 500;
+    private void startMonthlyTax() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                // tax system later
             }
-        }
+        }.runTaskTimer(this, 0, 20L * 60 * 60 * 24 * 30);
     }
-            }
+        }
