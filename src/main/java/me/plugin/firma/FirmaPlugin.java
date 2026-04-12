@@ -22,8 +22,14 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
     private final Map<String, Company> companies = new HashMap<>();
     private final Map<UUID, String> invites = new HashMap<>();
 
+    private double createPrice;
+
     @Override
     public void onEnable() {
+
+        saveDefaultConfig();
+        createPrice = getConfig().getDouble("company-create-price");
+
         if (!setupEconomy()) {
             getLogger().severe("Vault nenalezen!");
             getServer().getPluginManager().disablePlugin(this);
@@ -69,37 +75,40 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
                 return true;
             }
 
-            if (!econ.has(p, 1000)) {
+            if (!econ.has(p, createPrice)) {
                 p.sendMessage("§cNemáš peníze!");
                 return true;
             }
 
-            econ.withdrawPlayer(p, 1000);
+            econ.withdrawPlayer(p, createPrice);
 
             companies.put(name, new Company(name, p.getUniqueId()));
             p.sendMessage("§aFirma vytvořena!");
         }
 
-        // INVITE
-        if (args[0].equalsIgnoreCase("invite")) {
-            if (args.length < 2) return true;
-
-            Company c = getCompany(p);
-            if (c == null) return true;
-
-            if (!c.isManager(p.getUniqueId())) {
-                p.sendMessage("§cNemáš práva!");
-                return true;
-            }
-
-            Player target = Bukkit.getPlayer(args[1]);
-            if (target == null) return true;
-
-            invites.put(target.getUniqueId(), c.name);
-            openInviteGUI(target);
+        // TOP
+        if (args[0].equalsIgnoreCase("top")) {
+            sendTop(p);
         }
 
         return true;
+    }
+
+    // ===== LEADERBOARD =====
+    private void sendTop(Player p) {
+
+        List<Company> list = new ArrayList<>(companies.values());
+
+        list.sort((a, b) -> Double.compare(b.balance, a.balance));
+
+        p.sendMessage("§6=== TOP FIREM ===");
+
+        int i = 1;
+        for (Company c : list) {
+            p.sendMessage("§e" + i + ". §f" + c.name + " §7- " + c.balance + "$");
+
+            if (i++ >= 10) break;
+        }
     }
 
     // ===== GUI =====
@@ -120,74 +129,10 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
         inv.setItem(13, createItem(Material.GOLD_INGOT, "§6Balance",
                 "§7" + c.balance + "$"));
 
-        inv.setItem(22, createItem(Material.PLAYER_HEAD, "§bZaměstnanci"));
-
         p.openInventory(inv);
     }
 
-    private void openMembersGUI(Player p) {
-
-        Company c = getCompany(p);
-        Inventory inv = Bukkit.createInventory(null, 54, "§8Zaměstnanci");
-
-        int i = 0;
-
-        for (UUID uuid : c.members.keySet()) {
-            Player pl = Bukkit.getPlayer(uuid);
-
-            inv.setItem(i++, createItem(Material.PLAYER_HEAD,
-                    "§f" + (pl != null ? pl.getName() : "Offline"),
-                    "§7Role: " + c.members.get(uuid)));
-        }
-
-        p.openInventory(inv);
-    }
-
-    private void openInviteGUI(Player p) {
-        Inventory inv = Bukkit.createInventory(null, 27, "§8Pozvánka");
-
-        inv.setItem(11, createItem(Material.LIME_WOOL, "§aPřijmout"));
-        inv.setItem(15, createItem(Material.RED_WOOL, "§cOdmítnout"));
-
-        p.openInventory(inv);
-    }
-
-    // ===== CLICK =====
-    @EventHandler
-    public void click(InventoryClickEvent e) {
-
-        Player p = (Player) e.getWhoClicked();
-
-        if (e.getView().getTitle().equals("§8Firma")) {
-            e.setCancelled(true);
-
-            if (e.getSlot() == 22) {
-                openMembersGUI(p);
-            }
-        }
-
-        if (e.getView().getTitle().equals("§8Pozvánka")) {
-            e.setCancelled(true);
-
-            if (!invites.containsKey(p.getUniqueId())) return;
-
-            String company = invites.get(p.getUniqueId());
-
-            if (e.getSlot() == 11) {
-                Company c = companies.get(company);
-                c.members.put(p.getUniqueId(), "EMPLOYEE");
-
-                // XP ZA NOVÉHO HRÁČE
-                c.addXP(50);
-
-                p.sendMessage("§aPřipojen do firmy!");
-            }
-
-            invites.remove(p.getUniqueId());
-            p.closeInventory();
-        }
-    }
-
+    // ===== UTILS =====
     private Company getCompany(Player p) {
         for (Company c : companies.values()) {
             if (c.members.containsKey(p.getUniqueId())) return c;
@@ -217,22 +162,5 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
             this.name = name;
             members.put(owner, "OWNER");
         }
-
-        boolean isManager(UUID u) {
-            String role = members.get(u);
-            return role.equals("OWNER") || role.equals("MANAGER");
-        }
-
-        void addXP(int amount) {
-            xp += amount;
-
-            if (xp >= level * 100) {
-                xp = 0;
-                level++;
-
-                // BONUS ZA LEVEL UP
-                balance += 500;
-            }
-        }
     }
-                                   }
+}
