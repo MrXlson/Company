@@ -1,27 +1,20 @@
 package me.plugin.firma;
 
-import org.bukkit.Bukkit;
-import org.bukkit.Material;
-import org.bukkit.command.*;
-import org.bukkit.entity.Player;
-import org.bukkit.inventory.*;
-import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.plugin.RegisteredServiceProvider;
-import org.bukkit.event.*;
-import org.bukkit.event.inventory.InventoryClickEvent;
-
 import net.milkbowl.vault.economy.Economy;
-
-import org.bukkit.configuration.file.*;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.event.Listener;
+import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.configuration.file.FileConfiguration;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.*;
 
 public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener {
 
-    private static Economy econ = null;
+    private static Economy econ;
 
     private final Map<String, Company> companies = new HashMap<>();
     private final Map<UUID, String> invites = new HashMap<>();
@@ -30,12 +23,17 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
     private FileConfiguration data;
 
     private double createPrice;
+    private int salaryInterval;
+    private double salaryAmount;
 
     @Override
     public void onEnable() {
 
         saveDefaultConfig();
-        createPrice = getConfig().getDouble("company-create-price");
+
+        createPrice = getConfig().getDouble("company-create-price", 1000);
+        salaryInterval = getConfig().getInt("salary.interval-seconds", 60);
+        salaryAmount = getConfig().getDouble("salary.amount-per-player", 100);
 
         setupFile();
         loadCompanies();
@@ -46,177 +44,97 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
             return;
         }
 
+        startSalaryTask();
+
         getCommand("firma").setExecutor(this);
         Bukkit.getPluginManager().registerEvents(this, this);
     }
 
-    @Override
-    public void onDisable() {
-        saveCompanies();
+    // ===== ECONOMY =====
+    private boolean setupEconomy() {
+        if (getServer().getPluginManager().getPlugin("Vault") == null) {
+            return false;
+        }
+        econ = getServer().getServicesManager().getRegistration(Economy.class).getProvider();
+        return econ != null;
     }
 
-    // ===== FILE =====
+    // ===== SALARY TASK =====
+    private void startSalaryTask() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+
+                for (Company c : new ArrayList<>(companies.values())) {
+
+                    for (UUID uuid : c.members.keySet()) {
+
+                        Player p = Bukkit.getPlayer(uuid);
+                        if (p == null) continue;
+
+                        if (c.balance < salaryAmount) continue;
+
+                        econ.depositPlayer(p, salaryAmount);
+                        c.balance -= salaryAmount;
+
+                        c.addXP(5);
+                    }
+                }
+
+                saveCompanies();
+            }
+        }.runTaskTimer(this, 0L, salaryInterval * 20L);
+    }
+
+    // ===== FILE SYSTEM (placeholder – musíš mít svoje implementace) =====
     private void setupFile() {
         file = new File(getDataFolder(), "companies.yml");
         if (!file.exists()) {
             file.getParentFile().mkdirs();
             saveResource("companies.yml", false);
         }
-        data = YamlConfiguration.loadConfiguration(file);
+        data = getConfig();
     }
 
-    // ===== SAVE =====
-    private void saveCompanies() {
-        for (String name : companies.keySet()) {
-            Company c = companies.get(name);
-
-            data.set(name + ".balance", c.balance);
-            data.set(name + ".level", c.level);
-            data.set(name + ".xp", c.xp);
-
-            List<String> members = new ArrayList<>();
-            for (UUID uuid : c.members.keySet()) {
-                members.add(uuid.toString() + ":" + c.members.get(uuid));
-            }
-
-            data.set(name + ".members", members);
-        }
-
-        try {
-            data.save(file);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    // ===== LOAD =====
     private void loadCompanies() {
-        if (data.getKeys(false) == null) return;
+        // TODO: tvoje load logika
+    }
 
-        for (String name : data.getKeys(false)) {
+    private void saveCompanies() {
+        // TODO: tvoje save logika
+    }
 
-            Company c = new Company(name, null);
+    // ===== COMPANY MODEL =====
+    static class Company {
 
-            c.balance = data.getDouble(name + ".balance");
-            c.level = data.getInt(name + ".level");
-            c.xp = data.getInt(name + ".xp");
+        String name;
+        Map<UUID, Role> members = new HashMap<>();
+        double balance = 0;
 
-            List<String> members = data.getStringList(name + ".members");
+        int level = 1;
+        int xp = 0;
 
-            for (String s : members) {
-                String[] split = s.split(":");
-                UUID uuid = UUID.fromString(split[0]);
-                String role = split[1];
-
-                c.members.put(uuid, role);
+        Company(String name, UUID owner) {
+            this.name = name;
+            if (owner != null) {
+                members.put(owner, Role.OWNER);
             }
-
-            companies.put(name, c);
-        }
-    }
-
-    private boolean setupEconomy() {
-        if (getServer().getPluginManager().getPlugin("Vault") == null) return false;
-
-        RegisteredServiceProvider<Economy> rsp =
-                getServer().getServicesManager().getRegistration(Economy.class);
-
-        if (rsp == null) return false;
-
-        econ = rsp.getProvider();
-        return econ != null;
-    }
-
-    // ===== COMMAND =====
-    @Override
-    public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
-
-        if (!(sender instanceof Player)) return true;
-        Player p = (Player) sender;
-
-        if (args.length == 0) {
-            openMainGUI(p);
-            return true;
         }
 
-        // CREATE
-        if (args[0].equalsIgnoreCase("create")) {
-            if (args.length < 2) return true;
+        void addXP(int amount) {
+            xp += amount;
 
-            String name = args[1];
-
-            if (companies.containsKey(name)) {
-                p.sendMessage("§cFirma existuje!");
-                return true;
+            if (xp >= level * 100) {
+                xp = 0;
+                level++;
+                balance += 500;
             }
-
-            if (!econ.has(p, createPrice)) {
-                p.sendMessage("§cNemáš peníze!");
-                return true;
-            }
-
-            econ.withdrawPlayer(p, createPrice);
-
-            companies.put(name, new Company(name, p.getUniqueId()));
-            saveCompanies();
-
-            p.sendMessage("§aFirma vytvořena!");
-        }
-
-        // TOP
-        if (args[0].equalsIgnoreCase("top")) {
-            sendTop(p);
-        }
-
-        return true;
-    }
-
-    // ===== LEADERBOARD =====
-    private void sendTop(Player p) {
-
-        List<Company> list = new ArrayList<>(companies.values());
-        list.sort((a, b) -> Double.compare(b.balance, a.balance));
-
-        p.sendMessage("§6=== TOP FIREM ===");
-
-        int i = 1;
-        for (Company c : list) {
-            p.sendMessage("§e" + i + ". §f" + c.name + " §7- " + c.balance + "$");
-            if (i++ >= 10) break;
         }
     }
 
-    // ===== GUI =====
-    private void openMainGUI(Player p) {
-
-        Company c = getCompany(p);
-        if (c == null) {
-            p.sendMessage("§cNemáš firmu!");
-            return;
-        }
-
-        Inventory inv = Bukkit.createInventory(null, 27, "§8Firma");
-
-        inv.setItem(11, createItem(Material.PAPER, "§eInfo",
-                "§7Level: " + c.level,
-                "§7XP: " + c.xp + "/" + (c.level * 100)));
-
-        inv.setItem(13, createItem(Material.GOLD_INGOT, "§6Balance",
-                "§7" + c.balance + "$"));
-
-        p.openInventory(inv);
+    enum Role {
+        OWNER,
+        ADMIN,
+        MEMBER
     }
-
-    private Company getCompany(Player p) {
-        for (Company c : companies.values()) {
-            if (c.members.containsKey(p.getUniqueId())) return c;
-        }
-        return null;
-    }
-
-    private ItemStack createItem(Material m, String name, String... lore) {
-        ItemStack i = new ItemStack(m);
-        ItemMeta im = i.getItemMeta();
-        im.setDisplay
-            }
 }
