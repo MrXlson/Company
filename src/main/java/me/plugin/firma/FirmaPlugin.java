@@ -113,6 +113,10 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
 
         Inventory inv = Bukkit.createInventory(null, 27, "§8Firma");
 
+        inv.setItem(11, createItem(Material.PAPER, "§eInfo",
+                "§7Level: " + c.level,
+                "§7XP: " + c.xp + "/" + (c.level * 100)));
+
         inv.setItem(13, createItem(Material.GOLD_INGOT, "§6Balance",
                 "§7" + c.balance + "$"));
 
@@ -133,8 +137,7 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
 
             inv.setItem(i++, createItem(Material.PLAYER_HEAD,
                     "§f" + (pl != null ? pl.getName() : "Offline"),
-                    "§7Role: " + c.members.get(uuid),
-                    "§cKlikni pro vyhození"));
+                    "§7Role: " + c.members.get(uuid)));
         }
 
         p.openInventory(inv);
@@ -155,7 +158,6 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
 
         Player p = (Player) e.getWhoClicked();
 
-        // MAIN GUI
         if (e.getView().getTitle().equals("§8Firma")) {
             e.setCancelled(true);
 
@@ -164,28 +166,6 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
             }
         }
 
-        // MEMBERS
-        if (e.getView().getTitle().equals("§8Zaměstnanci")) {
-            e.setCancelled(true);
-
-            Company c = getCompany(p);
-
-            if (!c.isManager(p.getUniqueId())) return;
-
-            ItemStack item = e.getCurrentItem();
-            if (item == null) return;
-
-            String name = item.getItemMeta().getDisplayName().replace("§f", "");
-            Player target = Bukkit.getPlayer(name);
-
-            if (target != null) {
-                c.members.remove(target.getUniqueId());
-                p.sendMessage("§cVyhozen!");
-                openMembersGUI(p);
-            }
-        }
-
-        // INVITE
         if (e.getView().getTitle().equals("§8Pozvánka")) {
             e.setCancelled(true);
 
@@ -196,6 +176,10 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
             if (e.getSlot() == 11) {
                 Company c = companies.get(company);
                 c.members.put(p.getUniqueId(), "EMPLOYEE");
+
+                // XP ZA NOVÉHO HRÁČE
+                c.addXP(50);
+
                 p.sendMessage("§aPřipojen do firmy!");
             }
 
@@ -226,6 +210,9 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
         Map<UUID, String> members = new HashMap<>();
         double balance = 0;
 
+        int level = 1;
+        int xp = 0;
+
         Company(String name, UUID owner) {
             this.name = name;
             members.put(owner, "OWNER");
@@ -235,5 +222,17 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
             String role = members.get(u);
             return role.equals("OWNER") || role.equals("MANAGER");
         }
+
+        void addXP(int amount) {
+            xp += amount;
+
+            if (xp >= level * 100) {
+                xp = 0;
+                level++;
+
+                // BONUS ZA LEVEL UP
+                balance += 500;
+            }
+        }
     }
-}
+                                   }
