@@ -8,6 +8,7 @@ depend: [Vault]
 commands:
   firma:
     description: Firma systém
+    usage: firma
 
 permissions:
   firma.admin:
