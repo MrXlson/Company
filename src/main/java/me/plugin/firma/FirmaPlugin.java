@@ -34,7 +34,9 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
 
         setupEconomy();
 
-        getCommand("firma").setExecutor(this);
+        if (getCommand("firma") != null)
+            getCommand("firma").setExecutor(this);
+
         Bukkit.getPluginManager().registerEvents(this, this);
 
         startSalaryTask();
@@ -45,11 +47,16 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
 
     // ================= FILE SYSTEM =================
     private void setupFile() {
+
         file = new File(getDataFolder(), "data.yml");
 
         if (!file.exists()) {
             file.getParentFile().mkdirs();
-            saveResource("data.yml", false);
+            try {
+                file.createNewFile(); // ✅ FIX
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
 
         data = YamlConfiguration.loadConfiguration(file);
@@ -85,11 +92,17 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
 
         if (!data.contains("companies")) return;
 
-        for (String name : data.getConfigurationSection("companies").getKeys(false)) {
+        var section = data.getConfigurationSection("companies");
+        if (section == null) return;
+
+        for (String name : section.getKeys(false)) {
 
             String path = "companies." + name;
 
-            UUID owner = UUID.fromString(data.getString(path + ".owner"));
+            String ownerStr = data.getString(path + ".owner");
+            if (ownerStr == null) continue;
+
+            UUID owner = UUID.fromString(ownerStr);
 
             Company c = new Company(name, owner);
 
@@ -98,14 +111,20 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
             c.xp = data.getInt(path + ".xp");
 
             if (data.contains(path + ".members")) {
-                for (String u : data.getConfigurationSection(path + ".members").getKeys(false)) {
-                    c.members.put(UUID.fromString(u), data.getString(path + ".members." + u));
+                var members = data.getConfigurationSection(path + ".members");
+                if (members != null) {
+                    for (String u : members.getKeys(false)) {
+                        c.members.put(UUID.fromString(u), members.getString(u));
+                    }
                 }
             }
 
             if (data.contains(path + ".jobs")) {
-                for (String u : data.getConfigurationSection(path + ".jobs").getKeys(false)) {
-                    c.jobs.put(UUID.fromString(u), data.getString(path + ".jobs." + u));
+                var jobs = data.getConfigurationSection(path + ".jobs");
+                if (jobs != null) {
+                    for (String u : jobs.getKeys(false)) {
+                        c.jobs.put(UUID.fromString(u), jobs.getString(u));
+                    }
                 }
             }
 
@@ -119,7 +138,6 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
             @Override
             public void run() {
                 saveCompanies();
-                getLogger().info("Autosave done");
             }
         }.runTaskTimer(this, 20 * 300, 20 * 300);
     }
@@ -140,7 +158,12 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
         switch (args[0].toLowerCase()) {
 
             case "create" -> {
-                if (c != null) return true;
+                if (c != null) {
+                    p.sendMessage("§cUž jsi ve firmě!");
+                    return true;
+                }
+
+                if (args.length < 2) return true;
 
                 Company nc = new Company(args[1], p.getUniqueId());
                 companies.put(args[1], nc);
@@ -151,7 +174,10 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
 
             case "leave" -> {
                 if (c == null) return true;
-                if (c.isOwner(p)) return true;
+                if (c.isOwner(p)) {
+                    p.sendMessage("§cOwner nemůže odejít!");
+                    return true;
+                }
 
                 c.members.remove(p.getUniqueId());
                 c.jobs.remove(p.getUniqueId());
@@ -195,9 +221,6 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
         Inventory inv = Bukkit.createInventory(null, 45, "§6Firma Menu");
 
         inv.setItem(10, item(Material.GOLD_INGOT, "§eBanka", ""));
-        inv.setItem(12, item(Material.PLAYER_HEAD, "§bČlenové", ""));
-        inv.setItem(14, item(Material.PAPER, "§aInvite", ""));
-        inv.setItem(16, item(Material.EXPERIENCE_BOTTLE, "§6Level", ""));
         inv.setItem(18, item(Material.EMERALD, "§aTop", ""));
         inv.setItem(20, item(Material.BEACON, "§dHologram", ""));
         inv.setItem(40, item(Material.BARRIER, "§cZavřít", ""));
@@ -220,7 +243,7 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
             ItemMeta meta = it.getItemMeta();
 
             meta.setDisplayName("§e#" + (i + 1) + " " + c.name);
-            meta.setLore(List.of("§aBalance: " + c.balance, "§6Level: " + c.level));
+            meta.setLore(List.of("§aBalance: " + c.balance));
 
             it.setItemMeta(meta);
 
@@ -243,16 +266,11 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
 
         if (it == null) return;
 
-        Company c = getCompany(p);
-
         if (t.equals("§6Firma Menu")) {
-
             e.setCancelled(true);
 
             switch (it.getType()) {
-
                 case EMERALD -> openTopGUI(p);
-
                 case BEACON -> p.performCommand("firma hologram");
             }
         }
@@ -324,7 +342,9 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
                         if (p == null) continue;
 
                         double pay = 50 + (c.level * 10);
-                        econ.depositPlayer(p, pay);
+
+                        if (econ != null)
+                            econ.depositPlayer(p, pay);
 
                         c.xp += 10;
 
@@ -337,4 +357,4 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
             }
         }.runTaskTimer(this, 0, 20 * 60);
     }
-        }
+            }
