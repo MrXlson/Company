@@ -1,38 +1,42 @@
 package me.plugin.firma.chat;
 
 import java.util.HashMap;
-import java.util.Map;
 import java.util.UUID;
 
 public class ChatInputManager {
 
-    private static final Map<UUID, String> input = new HashMap<>();
+    private final HashMap<UUID, String> waiting = new HashMap<>();
+    private final HashMap<UUID, String> inputs = new HashMap<>();
 
-    // ===============================
-    // ➕ SET
-    // ===============================
-    public static void set(UUID uuid, String type) {
-        input.put(uuid, type);
+    // Nastaví hráče do čekání na input
+    public void waitFor(UUID uuid, String type) {
+        waiting.put(uuid, type);
     }
 
-    // ===============================
-    // 📥 GET
-    // ===============================
-    public static String get(UUID uuid) {
-        return input.get(uuid);
+    // Zkontroluje jestli hráč čeká na input
+    public boolean isWaiting(UUID uuid) {
+        return waiting.containsKey(uuid);
     }
 
-    // ===============================
-    // ❌ REMOVE
-    // ===============================
-    public static void remove(UUID uuid) {
-        input.remove(uuid);
+    // Získá typ inputu (např. "rename", "invite")
+    public String getType(UUID uuid) {
+        return waiting.get(uuid);
     }
 
-    // ===============================
-    // ✔ HAS
-    // ===============================
-    public static boolean has(UUID uuid) {
-        return input.containsKey(uuid);
+    // Uloží input
+    public void set(UUID uuid, String value) {
+        inputs.put(uuid, value);
+        waiting.remove(uuid);
+    }
+
+    // Získá input
+    public String get(UUID uuid) {
+        return inputs.get(uuid);
+    }
+
+    // Vymaže input
+    public void remove(UUID uuid) {
+        inputs.remove(uuid);
+        waiting.remove(uuid);
     }
 }
