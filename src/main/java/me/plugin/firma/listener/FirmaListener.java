@@ -1,10 +1,13 @@
 package me.plugin.firma.listener;
 
-import me.plugin.firma.gui.*;
 import me.plugin.firma.manager.FirmaManager;
-
+import me.plugin.firma.gui.FirmaGUI;
+import me.plugin.firma.gui.JobsGUI;
+import me.plugin.firma.gui.UpgradeGUI;
+import me.plugin.firma.gui.QuestGUI;
 import org.bukkit.entity.Player;
-import org.bukkit.event.*;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 
 public class FirmaListener implements Listener {
@@ -21,61 +24,62 @@ public class FirmaListener implements Listener {
         if (!(e.getWhoClicked() instanceof Player)) return;
 
         Player p = (Player) e.getWhoClicked();
-        String title = e.getView().getTitle();
 
-        // 🔒 ZABLOKUJE BRANÍ ITEMŮ V GUI
-        if (title.contains("BizCore") || title.contains("Menu") || title.contains("Firmy")) {
-            e.setCancelled(true);
-        }
+        // 🔥 NÁZEV HLAVNÍHO GUI
+        if (e.getView().getTitle().equals("§6BizCore")) {
 
-        // 🧠 HLAVNÍ MENU
-        if (title.equals("§6BizCore")) {
+            e.setCancelled(true); // ❌ zakáže brání itemů
 
-            e.setCancelled(true);
+            if (e.getCurrentItem() == null) return;
 
             switch (e.getSlot()) {
 
-                case 10:
-                    MembersGUI.open(p, manager);
-                    break;
-
-                case 12:
+                case 11:
                     JobsGUI.open(p, manager);
                     break;
 
-                case 14:
-                    QuestGUI.open(p, manager);
-                    break;
-
-                case 16:
+                case 13:
                     UpgradeGUI.open(p, manager);
                     break;
 
+                case 15:
+                    QuestGUI.open(p, manager);
+                    break;
+
                 case 22:
-                    TopGUI.open(p, manager);
+                    p.sendMessage("§eČlenové zatím nejsou hotové");
                     break;
             }
         }
 
-        // 🛒 UPGRADY
-        if (title.equals("§aUpgrady")) {
+        // 🔥 JOBS GUI
+        if (e.getView().getTitle().equals("§bPráce")) {
 
             e.setCancelled(true);
 
-            String f = manager.getCompany(p.getUniqueId());
-            if (f == null) return;
+            if (e.getCurrentItem() == null) return;
 
-            if (e.getSlot() == 13) {
+            p.sendMessage("§aVybral jsi práci!");
+        }
 
-                if (manager.getBalance(f) >= 1000) {
-                    manager.removeBalance(f, 1000);
-                    manager.upgradeMultiplier(f);
+        // 🔥 QUEST GUI
+        if (e.getView().getTitle().equals("§dQuesty")) {
 
-                    p.sendMessage("§aUpgrade koupen!");
-                } else {
-                    p.sendMessage("§cNedostatek peněz!");
-                }
-            }
+            e.setCancelled(true);
+
+            if (e.getCurrentItem() == null) return;
+
+            p.sendMessage("§dQuest kliknut!");
+        }
+
+        // 🔥 UPGRADE GUI
+        if (e.getView().getTitle().equals("§eUpgrade")) {
+
+            e.setCancelled(true);
+
+            if (e.getCurrentItem() == null) return;
+
+            p.sendMessage("§eUpgrade kliknut!");
         }
     }
 }
