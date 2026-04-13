@@ -5,32 +5,21 @@ import java.util.UUID;
 
 public class ChatInputManager {
 
-    private final HashMap<UUID, String> waiting = new HashMap<>();
-    private final HashMap<UUID, String> inputs = new HashMap<>();
+    private static final HashMap<UUID, String> waiting = new HashMap<>();
 
-    public void waitFor(UUID uuid, String type) {
-        waiting.put(uuid, type);
+    public static void waitFor(UUID uuid, String action) {
+        waiting.put(uuid, action);
     }
 
-    public boolean isWaiting(UUID uuid) {
+    public static boolean has(UUID uuid) {
         return waiting.containsKey(uuid);
     }
 
-    public String getType(UUID uuid) {
+    public static String get(UUID uuid) {
         return waiting.get(uuid);
     }
 
-    public void set(UUID uuid, String value) {
-        inputs.put(uuid, value);
-        waiting.remove(uuid);
-    }
-
-    public String get(UUID uuid) {
-        return inputs.get(uuid);
-    }
-
-    public void remove(UUID uuid) {
-        inputs.remove(uuid);
+    public static void remove(UUID uuid) {
         waiting.remove(uuid);
     }
 }
