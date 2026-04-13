@@ -23,6 +23,7 @@ public class FirmaGUI {
             inv.setItem(13, create);
         } else {
 
+            // INFO
             ItemStack info = new ItemStack(Material.PAPER);
             ItemMeta im = info.getItemMeta();
             im.setDisplayName("§e" + name);
@@ -33,7 +34,42 @@ public class FirmaGUI {
             ));
             info.setItemMeta(im);
 
-            inv.setItem(13, info);
+            // MEMBERS
+            ItemStack members = new ItemStack(Material.CHEST);
+            ItemMeta mm = members.getItemMeta();
+            mm.setDisplayName("§6Členové");
+            members.setItemMeta(mm);
+
+            // SHOP
+            ItemStack shop = new ItemStack(Material.EMERALD);
+            ItemMeta sm = shop.getItemMeta();
+            sm.setDisplayName("§aUpgrady");
+            shop.setItemMeta(sm);
+
+            // JOBS
+            ItemStack jobs = new ItemStack(Material.IRON_PICKAXE);
+            ItemMeta jm = jobs.getItemMeta();
+            jm.setDisplayName("§aPráce");
+            jobs.setItemMeta(jm);
+
+            // QUESTS
+            ItemStack quests = new ItemStack(Material.BOOK);
+            ItemMeta qm = quests.getItemMeta();
+            qm.setDisplayName("§bÚkoly");
+            quests.setItemMeta(qm);
+
+            // TOP
+            ItemStack top = new ItemStack(Material.DIAMOND);
+            ItemMeta tm = top.getItemMeta();
+            tm.setDisplayName("§eTOP firmy");
+            top.setItemMeta(tm);
+
+            inv.setItem(10, info);
+            inv.setItem(11, members);
+            inv.setItem(12, shop);
+            inv.setItem(14, jobs);
+            inv.setItem(15, quests);
+            inv.setItem(16, top);
         }
 
         p.openInventory(inv);
