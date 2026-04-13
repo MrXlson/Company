@@ -1,125 +1,194 @@
 package me.plugin.firma.manager;
 
 import org.bukkit.entity.Player;
-import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.*;
 
 public class FirmaManager {
 
-    private final JavaPlugin plugin;
+    private final HashMap<String, Firma> firmy = new HashMap<>();
+    private final HashMap<UUID, String> playerFirma = new HashMap<>();
 
-    // firma → data
-    private final Map<String, Firma> data = new HashMap<>();
-
-    public FirmaManager(JavaPlugin plugin) {
-        this.plugin = plugin;
-    }
-
-    // ===============================
+    // =========================
     // 🏢 CREATE FIRMA
-    // ===============================
-    public void createFirma(String name, UUID owner) {
-        Firma f = new Firma(name);
-        f.getMembers().put(owner, "OWNER");
-        data.put(name, f);
+    // =========================
+    public void createFirma(Player p, String name) {
+
+        Firma firma = new Firma(name, p.getUniqueId());
+
+        firmy.put(name.toLowerCase(), firma);
+        playerFirma.put(p.getUniqueId(), name.toLowerCase());
     }
 
-    // ===============================
-    // 👤 GET FIRMA
-    // ===============================
-    public String getFirma(Player p) {
-        return getCompany(p.getUniqueId());
+    // =========================
+    // 🔍 GET FIRMA
+    // =========================
+    public boolean hasFirma(Player p) {
+        return playerFirma.containsKey(p.getUniqueId());
     }
 
-    public String getCompany(UUID uuid) {
-        for (String key : data.keySet()) {
-            if (data.get(key).getMembers().containsKey(uuid)) {
-                return key;
-            }
-        }
-        return null;
+    public Firma getFirma(Player p) {
+        String name = playerFirma.get(p.getUniqueId());
+        return firmy.get(name);
     }
 
-    public boolean hasCompany(UUID uuid) {
-        return getCompany(uuid) != null;
+    public String getFirmaName(Player p) {
+        return playerFirma.get(p.getUniqueId());
     }
 
-    // ===============================
+    // =========================
     // 👥 MEMBERS
-    // ===============================
-    public Map<UUID, String> getMembers(String firma) {
-        return data.get(firma).getMembers();
+    // =========================
+    public void addMember(Player owner, String playerName) {
+
+        Firma firma = getFirma(owner);
+        if (firma == null) return;
+
+        firma.getMembers().add(playerName.toLowerCase());
     }
 
-    public void addMember(String firma, UUID uuid) {
-        data.get(firma).getMembers().put(uuid, "MEMBER");
+    public void removeMember(Player owner, String playerName) {
+
+        Firma firma = getFirma(owner);
+        if (firma == null) return;
+
+        firma.getMembers().remove(playerName.toLowerCase());
     }
 
-    public void removeMember(String firma, UUID uuid) {
-        data.get(firma).getMembers().remove(uuid);
+    public List<String> getMembers(Player p) {
+        Firma firma = getFirma(p);
+        if (firma == null) return new ArrayList<>();
+
+        return firma.getMembers();
     }
 
-    public String getRole(String firma, UUID uuid) {
-        return data.get(firma).getMembers().getOrDefault(uuid, "NONE");
+    // =========================
+    // 💰 BALANCE
+    // =========================
+    public double getBalance(Player p) {
+        Firma f = getFirma(p);
+        return f == null ? 0 : f.getBalance();
     }
 
-    public boolean isOwner(String firma, UUID uuid) {
-        return getRole(firma, uuid).equals("OWNER");
+    public void addBalance(Player p, double amount) {
+        Firma f = getFirma(p);
+        if (f == null) return;
+
+        f.setBalance(f.getBalance() + amount);
     }
 
-    // ===============================
-    // 💰 ECONOMY
-    // ===============================
-    public double getBalance(String firma) {
-        return data.get(firma).getBalance();
+    public void removeBalance(Player p, double amount) {
+        Firma f = getFirma(p);
+        if (f == null) return;
+
+        f.setBalance(Math.max(0, f.getBalance() - amount));
     }
 
-    public void addBalance(String firma, double amount) {
-        data.get(firma).setBalance(getBalance(firma) + amount);
+    // =========================
+    // ⭐ LEVEL + XP
+    // =========================
+    public int getLevel(Player p) {
+        Firma f = getFirma(p);
+        return f == null ? 1 : f.getLevel();
     }
 
-    public void removeBalance(String firma, double amount) {
-        data.get(firma).setBalance(getBalance(firma) - amount);
+    public int getXP(Player p) {
+        Firma f = getFirma(p);
+        return f == null ? 0 : f.getXp();
     }
 
-    // ===============================
-    // ⭐ XP + LEVEL
-    // ===============================
-    public void addXP(String firma, int amount) {
-        data.get(firma).setXp(data.get(firma).getXp() + amount);
+    public void addXP(Player p, int amount) {
+        Firma f = getFirma(p);
+        if (f == null) return;
+
+        int xp = f.getXp() + amount;
+        int level = f.getLevel();
+
+        int needed = level * 100;
+
+        if (xp >= needed) {
+            xp -= needed;
+            level++;
+        }
+
+        f.setXp(xp);
+        f.setLevel(level);
     }
 
-    public int getXP(String firma) {
-        return data.get(firma).getXp();
+    // =========================
+    // 📊 LIMIT (např. práce)
+    // =========================
+    public int getLimit(Player p) {
+        return getLevel(p) * 5;
     }
 
-    public int getLevel(String firma) {
-        return getXP(firma) / 100; // 100 XP = 1 level
+    // =========================
+    // 🚀 MULTIPLIER
+    // =========================
+    public double getMultiplier(Player p) {
+        return 1.0 + (getLevel(p) * 0.1);
     }
 
-    // ===============================
-    // 📦 LIMIT (např. max členů)
-    // ===============================
-    public int getLimit(String firma) {
-        return 10 + getLevel(firma);
+    public void upgradeMultiplier(Player p) {
+        // připravené do budoucna
     }
 
-    // ===============================
-    // 📈 MULTIPLIER
-    // ===============================
-    public double getMultiplier(String firma) {
-        return data.get(firma).getMultiplier();
-    }
+    // =========================
+    // 🧠 FIRMA CLASS
+    // =========================
+    public static class Firma {
 
-    public void upgradeMultiplier(String firma) {
-        data.get(firma).setMultiplier(getMultiplier(firma) + 0.1);
-    }
+        private final String name;
+        private final UUID owner;
+        private final List<String> members;
 
-    // ===============================
-    // 🔌 PLUGIN
-    // ===============================
-    public JavaPlugin getPlugin() {
-        return plugin;
+        private double balance;
+        private int level;
+        private int xp;
+
+        public Firma(String name, UUID owner) {
+            this.name = name;
+            this.owner = owner;
+            this.members = new ArrayList<>();
+            this.balance = 0;
+            this.level = 1;
+            this.xp = 0;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public UUID getOwner() {
+            return owner;
+        }
+
+        public List<String> getMembers() {
+            return members;
+        }
+
+        public double getBalance() {
+            return balance;
+        }
+
+        public void setBalance(double balance) {
+            this.balance = balance;
+        }
+
+        public int getLevel() {
+            return level;
+        }
+
+        public void setLevel(int level) {
+            this.level = level;
+        }
+
+        public int getXp() {
+            return xp;
+        }
+
+        public void setXp(int xp) {
+            this.xp = xp;
+        }
     }
-}
+                     }
