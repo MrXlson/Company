@@ -1,21 +1,25 @@
 package me.plugin.firma.chat;
 
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.UUID;
 
 public class ChatInputManager {
 
-    private static final HashSet<UUID> waiting = new HashSet<>();
+    private static final HashMap<UUID, String> input = new HashMap<>();
 
-    public static void add(UUID uuid) {
-        waiting.add(uuid);
+    public static void waitFor(UUID uuid, String type) {
+        input.put(uuid, type);
     }
 
-    public static boolean isWaiting(UUID uuid) {
-        return waiting.contains(uuid);
+    public static boolean has(UUID uuid) {
+        return input.containsKey(uuid);
+    }
+
+    public static String get(UUID uuid) {
+        return input.get(uuid);
     }
 
     public static void remove(UUID uuid) {
-        waiting.remove(uuid);
+        input.remove(uuid);
     }
 }
