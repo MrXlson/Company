@@ -2,9 +2,7 @@ package me.plugin.firma.listener;
 
 import me.plugin.firma.chat.ChatInputManager;
 import me.plugin.firma.manager.FirmaManager;
-
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.Listener;
+import org.bukkit.event.*;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.entity.Player;
 
@@ -19,17 +17,15 @@ public class ChatListener implements Listener {
     @EventHandler
     public void onChat(AsyncPlayerChatEvent e) {
 
-        Player player = e.getPlayer();
+        Player p = e.getPlayer();
 
-        if (!ChatInputManager.isWaiting(player.getUniqueId())) return;
+        if (!ChatInputManager.isWaiting(p.getUniqueId())) return;
 
         e.setCancelled(true);
 
-        String name = e.getMessage();
+        manager.createCompany(p.getUniqueId(), e.getMessage());
+        ChatInputManager.remove(p.getUniqueId());
 
-        manager.createCompany(player.getUniqueId(), name);
-        ChatInputManager.remove(player.getUniqueId());
-
-        player.sendMessage("§aFirma vytvořena: " + name);
+        p.sendMessage("§aFirma vytvořena!");
     }
 }
