@@ -1,5 +1,6 @@
 package me.plugin.firma.manager;
 
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.*;
@@ -27,13 +28,8 @@ public class FirmaManager {
     // ===============================
     // 👤 GET FIRMA
     // ===============================
-    public String getFirma(org.bukkit.entity.Player p) {
-        for (String key : data.keySet()) {
-            if (data.get(key).getMembers().containsKey(p.getUniqueId())) {
-                return key;
-            }
-        }
-        return null;
+    public String getFirma(Player p) {
+        return getCompany(p.getUniqueId());
     }
 
     public String getCompany(UUID uuid) {
@@ -43,6 +39,10 @@ public class FirmaManager {
             }
         }
         return null;
+    }
+
+    public boolean hasCompany(UUID uuid) {
+        return getCompany(uuid) != null;
     }
 
     // ===============================
@@ -84,7 +84,7 @@ public class FirmaManager {
     }
 
     // ===============================
-    // ⭐ XP
+    // ⭐ XP + LEVEL
     // ===============================
     public void addXP(String firma, int amount) {
         data.get(firma).setXp(data.get(firma).getXp() + amount);
@@ -92,6 +92,17 @@ public class FirmaManager {
 
     public int getXP(String firma) {
         return data.get(firma).getXp();
+    }
+
+    public int getLevel(String firma) {
+        return getXP(firma) / 100; // 100 XP = 1 level
+    }
+
+    // ===============================
+    // 📦 LIMIT (např. max členů)
+    // ===============================
+    public int getLimit(String firma) {
+        return 10 + getLevel(firma);
     }
 
     // ===============================
@@ -103,5 +114,12 @@ public class FirmaManager {
 
     public void upgradeMultiplier(String firma) {
         data.get(firma).setMultiplier(getMultiplier(firma) + 0.1);
+    }
+
+    // ===============================
+    // 🔌 PLUGIN
+    // ===============================
+    public JavaPlugin getPlugin() {
+        return plugin;
     }
 }
