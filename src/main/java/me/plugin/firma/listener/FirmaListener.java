@@ -1,7 +1,6 @@
 package me.plugin.firma.listener;
 
-import me.plugin.firma.chat.ChatInputManager;
-import me.plugin.firma.gui.FirmaGUI;
+import me.plugin.firma.gui.*;
 import me.plugin.firma.manager.FirmaManager;
 import org.bukkit.entity.Player;
 import org.bukkit.event.*;
@@ -20,14 +19,31 @@ public class FirmaListener implements Listener {
 
         Player p = (Player) e.getWhoClicked();
 
-        if (e.getView().getTitle().equals("§6BizCore")) {
-            e.setCancelled(true);
+        if (!e.getView().getTitle().equals("§6BizCore")) return;
 
-            if (e.getSlot() == 13 && !manager.hasCompany(p.getUniqueId())) {
-                ChatInputManager.add(p.getUniqueId());
-                p.closeInventory();
-                p.sendMessage("§eNapiš název firmy");
-            }
+        e.setCancelled(true);
+
+        switch (e.getSlot()) {
+
+            case 11:
+                MembersGUI.open(p, manager);
+                break;
+
+            case 12:
+                UpgradeGUI.open(p, manager);
+                break;
+
+            case 14:
+                JobsGUI.open(p, manager);
+                break;
+
+            case 15:
+                QuestGUI.open(p, manager);
+                break;
+
+            case 16:
+                TopGUI.open(p, manager);
+                break;
         }
     }
 }
