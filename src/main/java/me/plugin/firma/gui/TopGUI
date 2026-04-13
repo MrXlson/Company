@@ -1,22 +1,31 @@
 package me.plugin.firma.gui;
 
-import me.plugin.firma.company.Company;
+import me.plugin.firma.manager.FirmaManager;
 import org.bukkit.*;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.*;
 
-import java.util.List;
+import java.util.*;
 
 public class TopGUI {
 
-    public static void open(Player p, List<Company> list) {
+    public static void open(Player p, FirmaManager manager) {
 
-        Inventory inv = Bukkit.createInventory(null, 27, "§6TOP");
+        Inventory inv = Bukkit.createInventory(null, 27, "§eTOP firmy");
 
-        int i = 0;
-        for (Company c : list) {
-            inv.setItem(i++, new ItemStack(Material.EMERALD));
+        Map<String, Double> map = new HashMap<>();
+
+        for (String key : manager.getPlugin().getConfig().getConfigurationSection("firma").getKeys(false)) {
+            map.put(key, manager.getBalance(key));
         }
+
+        map.entrySet().stream()
+                .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
+                .limit(10)
+                .forEach(entry -> {
+                    ItemStack i = new ItemStack(Material.GOLD_INGOT);
+                    inv.addItem(i);
+                });
 
         p.openInventory(inv);
     }
