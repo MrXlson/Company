@@ -2,9 +2,11 @@ package me.plugin.firma.listener;
 
 import me.plugin.firma.chat.ChatInputManager;
 import me.plugin.firma.manager.FirmaManager;
-import org.bukkit.event.*;
-import org.bukkit.event.player.AsyncPlayerChatEvent;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.AsyncPlayerChatEvent;
 
 public class ChatListener implements Listener {
 
@@ -19,13 +21,40 @@ public class ChatListener implements Listener {
 
         Player p = e.getPlayer();
 
-        if (!ChatInputManager.isWaiting(p.getUniqueId())) return;
+        if (!ChatInputManager.has(p.getUniqueId())) return;
 
         e.setCancelled(true);
 
-        manager.createCompany(p.getUniqueId(), e.getMessage());
-        ChatInputManager.remove(p.getUniqueId());
+        String type = ChatInputManager.get(p.getUniqueId());
+        String msg = e.getMessage();
 
-        p.sendMessage("§aFirma vytvořena!");
+        String firma = manager.getFirma(p);
+
+        if (firma == null) return;
+
+        if (type.equals("add")) {
+
+            Player target = Bukkit.getPlayer(msg);
+
+            if (target == null) {
+                p.sendMessage("§cHráč není online!");
+            } else {
+                manager.addMember(firma, target.getUniqueId());
+                p.sendMessage("§aPřidán!");
+            }
+
+        } else if (type.equals("remove")) {
+
+            Player target = Bukkit.getPlayer(msg);
+
+            if (target == null) {
+                p.sendMessage("§cHráč není online!");
+            } else {
+                manager.removeMember(firma, target.getUniqueId());
+                p.sendMessage("§cOdebrán!");
+            }
+        }
+
+        ChatInputManager.remove(p.getUniqueId());
     }
 }
