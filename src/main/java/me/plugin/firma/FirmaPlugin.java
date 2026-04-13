@@ -3,66 +3,67 @@ package me.plugin.firma;
 import me.plugin.firma.company.CompanyManager;
 import me.plugin.firma.data.DataManager;
 import me.plugin.firma.listener.GUIListener;
+import me.plugin.firma.gui.MainGUI;
 import net.milkbowl.vault.economy.Economy;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandSender;
+import org.bukkit.command.*;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 
-public class FirmaPlugin extends JavaPlugin {
+public class FirmaPlugin extends JavaPlugin implements CommandExecutor {
 
     private static Economy econ;
 
     private CompanyManager companyManager;
     private DataManager dataManager;
 
-    // ================= ENABLE =================
     @Override
     public void onEnable() {
 
         saveDefaultConfig();
-
         setupEconomy();
 
         companyManager = new CompanyManager();
         dataManager = new DataManager(this);
 
-        // LOAD DATA
         companyManager.setCompanies(dataManager.load());
 
-        // LISTENER
+        // ✅ COMMAND FIX
+        if (getCommand("firma") != null) {
+            getCommand("firma").setExecutor(this);
+        }
+
+        // ✅ LISTENER
         getServer().getPluginManager().registerEvents(
                 new GUIListener(companyManager, this),
                 this
         );
 
-        // COMMAND
-        getCommand("firma").setExecutor(this);
-
-        // AUTO SAVE každých 60s
+        // AUTO SAVE
         getServer().getScheduler().runTaskTimerAsynchronously(this, () -> {
             dataManager.saveAsync(companyManager.getCompanies());
         }, 1200, 1200);
 
-        getLogger().info("BizCore enabled");
+        getLogger().info("BizCore ENABLED");
     }
 
-    // ================= COMMAND =================
     @Override
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
+
+        // 🔥 DEBUG (můžeš pak smazat)
+        getLogger().info("COMMAND /firma TRIGGERED");
 
         if (!(sender instanceof Player p)) return true;
 
         var c = companyManager.getCompany(p);
 
-        // OPEN GUI
+        // GUI OPEN
         if (args.length == 0) {
-            me.plugin.firma.gui.MainGUI.open(p, c);
+            MainGUI.open(p, c);
             return true;
         }
 
-        // CREATE COMPANY
+        // CREATE
         if (args[0].equalsIgnoreCase("create")) {
 
             if (c != null) {
@@ -87,27 +88,30 @@ public class FirmaPlugin extends JavaPlugin {
             companyManager.createCompany(args[1], p);
 
             p.sendMessage("§aFirma vytvořena!");
+            return true;
         }
 
         // WORK
         if (args[0].equalsIgnoreCase("work")) {
 
-            if (c == null) return true;
+            if (c == null) {
+                p.sendMessage("§cNemáš firmu!");
+                return true;
+            }
 
             double reward = getConfig().getDouble("jobs.reward");
 
             c.balance += reward;
             c.addXP(25, getConfig().getInt("levels.xp-per-level"));
 
-            p.sendMessage("§aOdpracoval jsi práci!");
+            p.sendMessage("§aPráce dokončena!");
+            return true;
         }
 
         return true;
     }
 
-    // ================= ECONOMY =================
     private void setupEconomy() {
-
         RegisteredServiceProvider<Economy> rsp =
                 getServer().getServicesManager().getRegistration(Economy.class);
 
