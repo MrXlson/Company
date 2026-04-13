@@ -41,3 +41,4 @@ public class GUIListener implements Listener {
             case "§bBanka" -> MainGUI.open(p);
         }
     }
+}
