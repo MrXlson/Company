@@ -1,9 +1,9 @@
 package me.plugin.firma.listener;
 
-import me.plugin.firma.manager.FirmaManager;
+import me.plugin.firma.manager.*;
+import org.bukkit.entity.Player;
 import org.bukkit.event.*;
 import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.entity.Player;
 
 public class QuestListener implements Listener {
 
@@ -19,10 +19,19 @@ public class QuestListener implements Listener {
         Player killer = e.getEntity().getKiller();
         if (killer == null) return;
 
+        QuestManager.addKill(killer.getUniqueId());
+
         String firma = manager.getCompany(killer.getUniqueId());
         if (firma == null) return;
 
-        manager.addBalance(firma, 500);
-        manager.addXP(firma, 50);
+        if (QuestManager.getKills(killer.getUniqueId()) >= 10) {
+
+            manager.addBalance(firma, 1000);
+            manager.addXP(firma, 100);
+
+            killer.sendMessage("§aQuest splněn!");
+
+            QuestManager.reset(killer.getUniqueId());
+        }
     }
 }
