@@ -2,9 +2,9 @@ name: BizCore
 version: 5.0
 main: me.plugin.firma.FirmaPlugin
 api-version: 1.21
-author: MrXlson
 
 commands:
   firma:
-    description: BizCore command
-    
+    description: BizCore main command
+    usage: /firma
+    aliases: [biz, company]
