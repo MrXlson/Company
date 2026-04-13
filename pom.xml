@@ -6,8 +6,8 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>me.plugin</groupId>
-    <artifactId>Company</artifactId>
-    <version>1.0</version>
+    <artifactId>BizCore</artifactId>
+    <version>5.0</version>
     <packaging>jar</packaging>
 
     <name>Company</name>
