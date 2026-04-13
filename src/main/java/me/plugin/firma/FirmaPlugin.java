@@ -25,7 +25,6 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
     private File file;
     private FileConfiguration data;
 
-    // ================= ENABLE =================
     @Override
     public void onEnable() {
 
@@ -45,7 +44,7 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
         getLogger().info("FirmaPlugin enabled");
     }
 
-    // ================= FILE SYSTEM =================
+    // ================= FILE =================
     private void setupFile() {
 
         file = new File(getDataFolder(), "data.yml");
@@ -53,7 +52,7 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
         if (!file.exists()) {
             file.getParentFile().mkdirs();
             try {
-                file.createNewFile(); // ✅ FIX
+                file.createNewFile();
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -132,7 +131,6 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
         }
     }
 
-    // ================= AUTO SAVE =================
     private void startAutoSave() {
         new BukkitRunnable() {
             @Override
@@ -220,9 +218,14 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
 
         Inventory inv = Bukkit.createInventory(null, 45, "§6Firma Menu");
 
-        inv.setItem(10, item(Material.GOLD_INGOT, "§eBanka", ""));
-        inv.setItem(18, item(Material.EMERALD, "§aTop", ""));
-        inv.setItem(20, item(Material.BEACON, "§dHologram", ""));
+        inv.setItem(10, item(Material.GOLD_INGOT, "§eBanka", "§7Klikni pro info"));
+        inv.setItem(12, item(Material.PLAYER_HEAD, "§bČlenové", "§7Zobrazit členy"));
+        inv.setItem(14, item(Material.PAPER, "§aPozvat hráče", "§7/firma invite"));
+        inv.setItem(16, item(Material.EXPERIENCE_BOTTLE, "§6Level", "§e" + (c == null ? 1 : c.level)));
+
+        inv.setItem(18, item(Material.EMERALD, "§aTOP Firmy", "§7Klikni"));
+        inv.setItem(20, item(Material.BEACON, "§dHologram", "§7Zobraz top"));
+
         inv.setItem(40, item(Material.BARRIER, "§cZavřít", ""));
 
         p.openInventory(inv);
@@ -243,7 +246,7 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
             ItemMeta meta = it.getItemMeta();
 
             meta.setDisplayName("§e#" + (i + 1) + " " + c.name);
-            meta.setLore(List.of("§aBalance: " + c.balance));
+            meta.setLore(List.of("§aBalance: " + c.balance, "§6Level: " + c.level));
 
             it.setItemMeta(meta);
 
@@ -266,12 +269,39 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor, Listener
 
         if (it == null) return;
 
+        Company c = getCompany(p);
+
         if (t.equals("§6Firma Menu")) {
+
             e.setCancelled(true);
 
             switch (it.getType()) {
+
+                case GOLD_INGOT -> {
+                    if (c != null)
+                        p.sendMessage("§aBalance: " + c.balance);
+                }
+
+                case PLAYER_HEAD -> {
+                    if (c != null) {
+                        p.sendMessage("§bČlenové:");
+                        c.members.forEach((u, r) ->
+                                p.sendMessage(" - " + Bukkit.getOfflinePlayer(u).getName()));
+                    }
+                }
+
+                case PAPER -> p.sendMessage("§7Použij: /firma invite <hráč>");
+
+                case EXPERIENCE_BOTTLE -> {
+                    if (c != null)
+                        p.sendMessage("§6Level: " + c.level);
+                }
+
                 case EMERALD -> openTopGUI(p);
+
                 case BEACON -> p.performCommand("firma hologram");
+
+                case BARRIER -> p.closeInventory();
             }
         }
 
