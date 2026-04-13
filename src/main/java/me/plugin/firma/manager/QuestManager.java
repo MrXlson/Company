@@ -1,20 +1,21 @@
 package me.plugin.firma.manager;
 
 import java.util.HashMap;
+import java.util.UUID;
 
 public class QuestManager {
 
-    private static final HashMap<String, Integer> progress = new HashMap<>();
+    private static final HashMap<UUID, Integer> kills = new HashMap<>();
 
-    public static void add(String firma) {
-        progress.put(firma, progress.getOrDefault(firma, 0) + 1);
+    public static void addKill(UUID uuid) {
+        kills.put(uuid, kills.getOrDefault(uuid, 0) + 1);
     }
 
-    public static int get(String firma) {
-        return progress.getOrDefault(firma, 0);
+    public static int getKills(UUID uuid) {
+        return kills.getOrDefault(uuid, 0);
     }
 
-    public static void reset(String firma) {
-        progress.remove(firma);
+    public static void reset(UUID uuid) {
+        kills.remove(uuid);
     }
 }
