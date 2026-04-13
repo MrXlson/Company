@@ -1,31 +1,42 @@
 package me.plugin.firma.listener;
 
-import me.plugin.firma.FirmaPlugin;
+import me.plugin.firma.chat.ChatInputManager;
+import me.plugin.firma.manager.FirmaManager;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 
 public class ChatListener implements Listener {
 
-    private final FirmaPlugin plugin;
+    private final FirmaManager manager;
 
-    public ChatListener(FirmaPlugin plugin) {
-        this.plugin = plugin;
+    public ChatListener(FirmaManager manager) {
+        this.manager = manager;
     }
 
     @EventHandler
     public void onChat(AsyncPlayerChatEvent e) {
-        if (plugin.getChatInputManager().isWaiting(e.getPlayer().getUniqueId())) {
-            e.setCancelled(true);
 
-            String type = plugin.getChatInputManager().getType(e.getPlayer().getUniqueId());
-            String message = e.getMessage();
+        Player p = e.getPlayer();
 
-            if (type.equalsIgnoreCase("rename")) {
-                e.getPlayer().sendMessage("Firma přejmenována na: " + message);
-            }
+        if (!ChatInputManager.has(p.getUniqueId())) return;
 
-            plugin.getChatInputManager().set(e.getPlayer().getUniqueId(), message);
+        e.setCancelled(true);
+
+        String action = ChatInputManager.get(p.getUniqueId());
+        String msg = e.getMessage();
+
+        if (action.equals("add")) {
+            manager.addMember(p, msg);
+            p.sendMessage("§aHráč přidán!");
         }
+
+        if (action.equals("remove")) {
+            manager.removeMember(p, msg);
+            p.sendMessage("§cHráč odebrán!");
+        }
+
+        ChatInputManager.remove(p.getUniqueId());
     }
 }
