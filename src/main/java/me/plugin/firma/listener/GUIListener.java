@@ -3,17 +3,18 @@ package me.plugin.firma.listener;
 import me.plugin.firma.*;
 import me.plugin.firma.company.*;
 import me.plugin.firma.gui.*;
+import org.bukkit.*;
 import org.bukkit.entity.Player;
 import org.bukkit.event.*;
 import org.bukkit.event.inventory.InventoryClickEvent;
 
 public class GUIListener implements Listener {
 
-    private final CompanyManager manager;
+    private final CompanyManager m;
     private final FirmaPlugin plugin;
 
-    public GUIListener(CompanyManager manager, FirmaPlugin plugin) {
-        this.manager = manager;
+    public GUIListener(CompanyManager m, FirmaPlugin plugin) {
+        this.m = m;
         this.plugin = plugin;
     }
 
@@ -28,40 +29,11 @@ public class GUIListener implements Listener {
 
         e.setCancelled(true);
 
-        if (e.getCurrentItem() == null) return;
+        Company c = m.getCompany(p);
 
-        Company c = manager.getCompany(p);
-
-        if (t.equals("§6BizCore")) {
-
-            switch (e.getCurrentItem().getType()) {
-                case GOLD_INGOT -> BankGUI.open(p, c);
-            }
-        }
-
-        if (t.equals("§bBanka")) {
-
-            double deposit = plugin.getConfig().getDouble("economy.deposit-amount");
-            double withdraw = plugin.getConfig().getDouble("economy.withdraw-amount");
-
-            switch (e.getCurrentItem().getType()) {
-
-                case GREEN_WOOL -> {
-                    if (plugin.getEconomy().getBalance(p) >= deposit) {
-                        plugin.getEconomy().withdrawPlayer(p, deposit);
-                        c.balance += deposit;
-                    }
-                    BankGUI.open(p, c);
-                }
-
-                case RED_WOOL -> {
-                    if (c.balance >= withdraw) {
-                        c.balance -= withdraw;
-                        plugin.getEconomy().depositPlayer(p, withdraw);
-                    }
-                    BankGUI.open(p, c);
-                }
-            }
+        switch (e.getCurrentItem().getType()) {
+            case GOLD_INGOT -> BankGUI.open(p, c);
+            case BARRIER -> p.closeInventory();
         }
     }
 }
