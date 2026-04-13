@@ -1,49 +1,17 @@
-package me.plugin.firma.listener;
+if (e.getView().getTitle().equals("§aUpgrady")) {
+    e.setCancelled(true);
 
-import me.plugin.firma.gui.*;
-import me.plugin.firma.manager.FirmaManager;
-import org.bukkit.entity.Player;
-import org.bukkit.event.*;
-import org.bukkit.event.inventory.InventoryClickEvent;
+    String f = manager.getCompany(p.getUniqueId());
 
-public class FirmaListener implements Listener {
+    if (e.getSlot() == 13) {
 
-    private final FirmaManager manager;
+        if (manager.getBalance(f) >= 1000) {
+            manager.removeBalance(f, 1000);
+            manager.upgradeMultiplier(f);
 
-    public FirmaListener(FirmaManager manager) {
-        this.manager = manager;
-    }
-
-    @EventHandler
-    public void onClick(InventoryClickEvent e) {
-
-        Player p = (Player) e.getWhoClicked();
-
-        if (!e.getView().getTitle().equals("§6BizCore")) return;
-
-        e.setCancelled(true);
-
-        switch (e.getSlot()) {
-
-            case 11:
-                MembersGUI.open(p, manager);
-                break;
-
-            case 12:
-                UpgradeGUI.open(p, manager);
-                break;
-
-            case 14:
-                JobsGUI.open(p, manager);
-                break;
-
-            case 15:
-                QuestGUI.open(p, manager);
-                break;
-
-            case 16:
-                TopGUI.open(p, manager);
-                break;
+            p.sendMessage("§aUpgrade koupen!");
+        } else {
+            p.sendMessage("§cNedostatek peněz!");
         }
     }
 }
