@@ -1,8 +1,9 @@
 package me.plugin.firma.manager;
 
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.util.UUID;
+import java.util.*;
 
 public class FirmaManager {
 
@@ -10,10 +11,6 @@ public class FirmaManager {
 
     public FirmaManager(JavaPlugin plugin) {
         this.plugin = plugin;
-    }
-
-    public JavaPlugin getPlugin() {
-        return plugin;
     }
 
     public boolean hasCompany(UUID uuid) {
@@ -24,19 +21,34 @@ public class FirmaManager {
         return plugin.getConfig().getString("players." + uuid + ".firma");
     }
 
-    public void createCompany(UUID uuid, String name) {
-        plugin.getConfig().set("players." + uuid + ".firma", name);
-        plugin.getConfig().set("firma." + name + ".owner", uuid.toString());
-        plugin.getConfig().set("firma." + name + ".balance", 0);
-        plugin.getConfig().set("firma." + name + ".level", 1);
-        plugin.getConfig().set("firma." + name + ".xp", 0);
-        plugin.getConfig().set("firma." + name + ".multiplier", 1.0);
-        plugin.getConfig().set("firma." + name + ".limit", 10000);
+    public void createCompany(UUID owner, String name) {
+        FileConfiguration c = plugin.getConfig();
+
+        c.set("firma." + name + ".owner", owner.toString());
+        c.set("firma." + name + ".members", new ArrayList<>(Collections.singletonList(owner.toString())));
+        c.set("firma." + name + ".balance", 0);
+        c.set("firma." + name + ".level", 1);
+        c.set("firma." + name + ".xp", 0);
+
+        c.set("players." + owner + ".firma", name);
+
+        plugin.saveConfig();
+    }
+
+    public List<String> getMembers(String firma) {
+        return plugin.getConfig().getStringList("firma." + firma + ".members");
+    }
+
+    public void addMember(String firma, UUID uuid) {
+        List<String> list = getMembers(firma);
+        list.add(uuid.toString());
+        plugin.getConfig().set("firma." + firma + ".members", list);
+        plugin.getConfig().set("players." + uuid + ".firma", firma);
         plugin.saveConfig();
     }
 
     public double getBalance(String firma) {
-        return plugin.getConfig().getDouble("firma." + firma + ".balance", 0);
+        return plugin.getConfig().getDouble("firma." + firma + ".balance");
     }
 
     public void addBalance(String firma, double amount) {
@@ -44,46 +56,26 @@ public class FirmaManager {
         plugin.saveConfig();
     }
 
-    public void removeBalance(String firma, double amount) {
-        plugin.getConfig().set("firma." + firma + ".balance", getBalance(firma) - amount);
-        plugin.saveConfig();
+    public int getLevel(String firma) {
+        return plugin.getConfig().getInt("firma." + firma + ".level");
     }
 
-    public int getLevel(String firma) {
-        return plugin.getConfig().getInt("firma." + firma + ".level", 1);
+    public int getXP(String firma) {
+        return plugin.getConfig().getInt("firma." + firma + ".xp");
     }
 
     public void addXP(String firma, int amount) {
-        int xp = plugin.getConfig().getInt("firma." + firma + ".xp", 0);
+        int xp = getXP(firma) + amount;
+        plugin.getConfig().set("firma." + firma + ".xp", xp);
+
         int level = getLevel(firma);
+        int needed = plugin.getConfig().getInt("levels." + level + ".xp");
 
-        xp += amount;
-
-        if (xp >= level * 100) {
-            xp = 0;
-            level++;
-            plugin.getConfig().set("firma." + firma + ".level", level);
+        if (xp >= needed) {
+            plugin.getConfig().set("firma." + firma + ".xp", 0);
+            plugin.getConfig().set("firma." + firma + ".level", level + 1);
         }
 
-        plugin.getConfig().set("firma." + firma + ".xp", xp);
-        plugin.saveConfig();
-    }
-
-    public double getMultiplier(String firma) {
-        return plugin.getConfig().getDouble("firma." + firma + ".multiplier", 1.0);
-    }
-
-    public void upgradeMultiplier(String firma) {
-        plugin.getConfig().set("firma." + firma + ".multiplier", getMultiplier(firma) + 0.5);
-        plugin.saveConfig();
-    }
-
-    public double getLimit(String firma) {
-        return plugin.getConfig().getDouble("firma." + firma + ".limit", 10000);
-    }
-
-    public void upgradeLimit(String firma) {
-        plugin.getConfig().set("firma." + firma + ".limit", getLimit(firma) + 5000);
         plugin.saveConfig();
     }
 }
