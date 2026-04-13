@@ -5,13 +5,10 @@ import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.inventory.meta.SkullMeta;
+import org.bukkit.inventory.*;
+import org.bukkit.inventory.meta.*;
 
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 public class MembersGUI {
 
@@ -20,16 +17,13 @@ public class MembersGUI {
         Inventory inv = Bukkit.createInventory(null, 27, "§aČlenové");
 
         String firma = manager.getFirma(p);
-        if (firma == null) {
-            p.sendMessage("§cNemáš firmu!");
-            return;
-        }
+        if (firma == null) return;
 
-        List<UUID> members = manager.getMembers(firma);
+        Map<UUID, String> members = manager.getMembers(firma);
 
         int slot = 10;
 
-        for (UUID uuid : members) {
+        for (UUID uuid : members.keySet()) {
 
             OfflinePlayer op = Bukkit.getOfflinePlayer(uuid);
 
@@ -38,6 +32,12 @@ public class MembersGUI {
 
             meta.setOwningPlayer(op);
             meta.setDisplayName("§e" + op.getName());
+
+            String role = manager.getRole(firma, uuid);
+
+            meta.setLore(Arrays.asList(
+                    "§7Role: §e" + role
+            ));
 
             head.setItemMeta(meta);
 
