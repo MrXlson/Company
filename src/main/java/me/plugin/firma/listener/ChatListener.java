@@ -4,8 +4,7 @@ import me.plugin.firma.chat.ChatInputManager;
 import me.plugin.firma.manager.FirmaManager;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.Listener;
+import org.bukkit.event.*;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 
 public class ChatListener implements Listener {
@@ -29,7 +28,6 @@ public class ChatListener implements Listener {
         String msg = e.getMessage();
 
         String firma = manager.getFirma(p);
-
         if (firma == null) return;
 
         if (type.equals("add")) {
@@ -50,6 +48,14 @@ public class ChatListener implements Listener {
             if (target == null) {
                 p.sendMessage("§cHráč není online!");
             } else {
+
+                String role = manager.getRole(firma, target.getUniqueId());
+
+                if (role.equals("OWNER")) {
+                    p.sendMessage("§cNemůžeš odebrat ownera!");
+                    return;
+                }
+
                 manager.removeMember(firma, target.getUniqueId());
                 p.sendMessage("§cOdebrán!");
             }
