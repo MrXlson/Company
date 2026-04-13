@@ -1,1 +1,1 @@
-
+implements Serializable
