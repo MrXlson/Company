@@ -1,4 +1,3 @@
-
 package me.plugin.firma.economy;
 
 import net.milkbowl.vault.economy.Economy;
