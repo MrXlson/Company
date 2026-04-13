@@ -4,75 +4,117 @@ import me.plugin.firma.company.CompanyManager;
 import me.plugin.firma.data.DataManager;
 import me.plugin.firma.listener.GUIListener;
 import net.milkbowl.vault.economy.Economy;
-import org.bukkit.command.*;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 
-public class FirmaPlugin extends JavaPlugin implements CommandExecutor {
+public class FirmaPlugin extends JavaPlugin {
+
+    private static Economy econ;
 
     private CompanyManager companyManager;
     private DataManager dataManager;
-    private Economy econ;
 
+    // ================= ENABLE =================
     @Override
     public void onEnable() {
+
+        saveDefaultConfig();
 
         setupEconomy();
 
         companyManager = new CompanyManager();
         dataManager = new DataManager(this);
 
+        // LOAD DATA
         companyManager.setCompanies(dataManager.load());
 
+        // LISTENER
         getServer().getPluginManager().registerEvents(
-                new GUIListener(companyManager), this
+                new GUIListener(companyManager, this),
+                this
         );
 
-        if (getCommand("firma") != null)
-            getCommand("firma").setExecutor(this);
+        // COMMAND
+        getCommand("firma").setExecutor(this);
 
-        getLogger().info("FirmaPlugin enabled");
+        // AUTO SAVE každých 60s
+        getServer().getScheduler().runTaskTimerAsynchronously(this, () -> {
+            dataManager.saveAsync(companyManager.getCompanies());
+        }, 1200, 1200);
+
+        getLogger().info("BizCore enabled");
     }
 
+    // ================= COMMAND =================
     @Override
-    public void onDisable() {
-        dataManager.save(companyManager.getCompanies());
+    public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
+
+        if (!(sender instanceof Player p)) return true;
+
+        var c = companyManager.getCompany(p);
+
+        // OPEN GUI
+        if (args.length == 0) {
+            me.plugin.firma.gui.MainGUI.open(p, c);
+            return true;
+        }
+
+        // CREATE COMPANY
+        if (args[0].equalsIgnoreCase("create")) {
+
+            if (c != null) {
+                p.sendMessage("§cUž máš firmu!");
+                return true;
+            }
+
+            if (args.length < 2) {
+                p.sendMessage("§cPoužití: /firma create <name>");
+                return true;
+            }
+
+            double cost = getConfig().getDouble("economy.create-cost");
+
+            if (econ.getBalance(p) < cost) {
+                p.sendMessage("§cNemáš dost peněz!");
+                return true;
+            }
+
+            econ.withdrawPlayer(p, cost);
+
+            companyManager.createCompany(args[1], p);
+
+            p.sendMessage("§aFirma vytvořena!");
+        }
+
+        // WORK
+        if (args[0].equalsIgnoreCase("work")) {
+
+            if (c == null) return true;
+
+            double reward = getConfig().getDouble("jobs.reward");
+
+            c.balance += reward;
+            c.addXP(25, getConfig().getInt("levels.xp-per-level"));
+
+            p.sendMessage("§aOdpracoval jsi práci!");
+        }
+
+        return true;
     }
 
+    // ================= ECONOMY =================
     private void setupEconomy() {
+
         RegisteredServiceProvider<Economy> rsp =
                 getServer().getServicesManager().getRegistration(Economy.class);
 
         if (rsp != null) econ = rsp.getProvider();
     }
 
-    @Override
-    public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
-
-        if (!(sender instanceof Player p)) return true;
-
-        if (args.length == 0) {
-            p.sendMessage("§ePoužití: /firma create <název>");
-            return true;
-        }
-
-        if (args[0].equalsIgnoreCase("create")) {
-
-            if (companyManager.getCompany(p) != null) {
-                p.sendMessage("§cUž máš firmu!");
-                return true;
-            }
-
-            if (args.length < 2) {
-                p.sendMessage("§cPoužití: /firma create <název>");
-                return true;
-            }
-
-            companyManager.createCompany(args[1], p);
-            p.sendMessage("§aFirma vytvořena!");
-        }
-
-        return true;
+    public Economy getEconomy() {
+        return econ;
     }
 }
