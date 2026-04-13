@@ -25,7 +25,7 @@ public class InventoryListener implements Listener {
 
         if (title == null) return;
 
-        // ❌ zákaz brání itemů z GUI
+        // ❌ blokace brání itemů
         if (title.contains("BizCore") || title.contains("Práce") || title.contains("Členové")) {
             e.setCancelled(true);
         }
@@ -36,3 +36,25 @@ public class InventoryListener implements Listener {
         // 🏠 MAIN GUI
         // =========================
         if (title.equals("§6BizCore")) {
+
+            switch (e.getSlot()) {
+
+                case 11:
+                    JobsGUI.open(p, manager);
+                    break;
+
+                case 13:
+                    UpgradeGUI.open(p, manager);
+                    break;
+
+                case 15:
+                    QuestGUI.open(p, manager);
+                    break;
+
+                case 22:
+                    MembersGUI.open(p, manager);
+                    break;
+            }
+        }
+    }
+}
