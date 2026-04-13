@@ -1,8 +1,9 @@
 package me.plugin.firma.listener;
 
 import me.plugin.firma.FirmaPlugin;
-import me.plugin.firma.manager.FirmaManager;
+import me.plugin.firma.chat.ChatInputManager;
 import me.plugin.firma.gui.*;
+import me.plugin.firma.manager.FirmaManager;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -10,8 +11,8 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 
 public class FirmaListener implements Listener {
 
-    private final FirmaManager manager;
     private final FirmaPlugin plugin;
+    private final FirmaManager manager;
 
     public FirmaListener(FirmaPlugin plugin, FirmaManager manager) {
         this.plugin = plugin;
@@ -26,17 +27,21 @@ public class FirmaListener implements Listener {
         Player p = (Player) e.getWhoClicked();
         String title = e.getView().getTitle();
 
-        // ❌ blokování itemů
-        if (title.contains("BizCore") || title.contains("Členové")) {
+        // 🔒 BLOKACE ITEMŮ VE VŠECH GUI
+        if (title.contains("BizCore") ||
+                title.contains("Člen") ||
+                title.contains("Práce") ||
+                title.contains("Upgrade") ||
+                title.contains("Quest")) {
             e.setCancelled(true);
         }
 
         if (e.getCurrentItem() == null) return;
 
         // =========================
-        // 🧠 MAIN GUI
+        // 🏢 MAIN GUI
         // =========================
-        if (title.equals("§6BizCore")) {
+        if (title.contains("BizCore")) {
 
             switch (e.getSlot()) {
 
@@ -61,19 +66,22 @@ public class FirmaListener implements Listener {
         // =========================
         // 👥 MEMBERS GUI
         // =========================
-        if (title.equals("§aČlenové")) {
+        if (title.contains("Člen")) {
 
-            if (e.getCurrentItem().getItemMeta() == null) return;
             String name = e.getCurrentItem().getItemMeta().getDisplayName();
 
             if (name == null) return;
 
             if (name.contains("Přidat")) {
                 p.closeInventory();
-                p.sendMessage("§aNapiš jméno hráče do chatu:");
+                p.sendMessage("§eNapiš jméno hráče:");
+                ChatInputManager.waitFor(p.getUniqueId(), "add");
+            }
 
-                // ✅ SPRÁVNĚ
-                plugin.getChatInputManager().waitFor(p.getUniqueId(), "add");
+            if (name.contains("Odebrat")) {
+                p.closeInventory();
+                p.sendMessage("§cNapiš jméno hráče:");
+                ChatInputManager.waitFor(p.getUniqueId(), "remove");
             }
         }
     }
