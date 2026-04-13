@@ -1,9 +1,8 @@
 package me.plugin.firma.listener;
 
+import me.plugin.firma.FirmaPlugin;
 import me.plugin.firma.manager.FirmaManager;
 import me.plugin.firma.gui.*;
-import me.plugin.firma.chat.ChatInputManager;
-
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -12,8 +11,10 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 public class FirmaListener implements Listener {
 
     private final FirmaManager manager;
+    private final FirmaPlugin plugin;
 
-    public FirmaListener(FirmaManager manager) {
+    public FirmaListener(FirmaPlugin plugin, FirmaManager manager) {
+        this.plugin = plugin;
         this.manager = manager;
     }
 
@@ -25,16 +26,16 @@ public class FirmaListener implements Listener {
         Player p = (Player) e.getWhoClicked();
         String title = e.getView().getTitle();
 
-        // ❌ blokování braní itemů
-        if (title.contains("BizCore") || title.contains("Členové") || title.contains("Práce") || title.contains("Questy") || title.contains("Upgrady")) {
+        // ❌ blokování itemů
+        if (title.contains("BizCore") || title.contains("Členové")) {
             e.setCancelled(true);
         }
 
         if (e.getCurrentItem() == null) return;
 
-        // ===============================
+        // =========================
         // 🧠 MAIN GUI
-        // ===============================
+        // =========================
         if (title.equals("§6BizCore")) {
 
             switch (e.getSlot()) {
@@ -57,11 +58,12 @@ public class FirmaListener implements Listener {
             }
         }
 
-        // ===============================
+        // =========================
         // 👥 MEMBERS GUI
-        // ===============================
+        // =========================
         if (title.equals("§aČlenové")) {
 
+            if (e.getCurrentItem().getItemMeta() == null) return;
             String name = e.getCurrentItem().getItemMeta().getDisplayName();
 
             if (name == null) return;
@@ -69,48 +71,10 @@ public class FirmaListener implements Listener {
             if (name.contains("Přidat")) {
                 p.closeInventory();
                 p.sendMessage("§aNapiš jméno hráče do chatu:");
-                ChatInputManager.waitFor(p.getUniqueId(), "add");
+
+                // ✅ SPRÁVNĚ
+                plugin.getChatInputManager().waitFor(p.getUniqueId(), "add");
             }
-
-            if (name.contains("Odebrat")) {
-                p.closeInventory();
-                p.sendMessage("§cNapiš jméno hráče:");
-                ChatInputManager.waitFor(p.getUniqueId(), "remove");
-            }
-        }
-
-        // ===============================
-        // 🛒 UPGRADES GUI
-        // ===============================
-        if (title.equals("§aUpgrady")) {
-
-            String f = manager.getCompany(p.getUniqueId());
-            if (f == null) return;
-
-            if (e.getSlot() == 13) {
-
-                if (manager.getBalance(f) >= 1000) {
-                    manager.removeBalance(f, 1000);
-                    manager.upgradeMultiplier(f);
-                    p.sendMessage("§aUpgrade koupen!");
-                } else {
-                    p.sendMessage("§cNedostatek peněz!");
-                }
-            }
-        }
-
-        // ===============================
-        // 🧑‍💼 JOBS GUI
-        // ===============================
-        if (title.equals("§bPráce")) {
-            p.sendMessage("§aVybral jsi práci!");
-        }
-
-        // ===============================
-        // 📜 QUEST GUI
-        // ===============================
-        if (title.equals("§dQuesty")) {
-            p.sendMessage("§dQuest kliknut!");
         }
     }
 }
