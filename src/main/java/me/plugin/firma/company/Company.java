@@ -6,10 +6,10 @@ public class Company {
 
     public String name;
     public UUID owner;
-
     public double balance = 0;
+
     public int level = 1;
-    public double xp = 0;
+    public int xp = 0;
 
     public Map<UUID, Role> members = new HashMap<>();
 
@@ -19,10 +19,9 @@ public class Company {
         members.put(owner, Role.OWNER);
     }
 
-    public void addXP(double amount, int xpPerLevel) {
-        xp += amount;
-
-        if (xp >= xpPerLevel) {
+    public void addXP(int a, int need) {
+        xp += a;
+        if (xp >= need) {
             xp = 0;
             level++;
         }
