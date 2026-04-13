@@ -4,7 +4,8 @@ import me.plugin.firma.company.Company;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.*;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
 
 public class DataManager {
 
