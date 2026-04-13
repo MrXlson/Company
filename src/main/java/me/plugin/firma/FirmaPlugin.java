@@ -17,12 +17,22 @@ public class FirmaPlugin extends JavaPlugin {
 
         manager = new FirmaManager(this);
 
+        // COMMAND
         getCommand("firma").setExecutor(new FirmaCommand(manager));
 
+        // LISTENERY
         getServer().getPluginManager().registerEvents(new FirmaListener(manager), this);
         getServer().getPluginManager().registerEvents(new ChatListener(manager), this);
         getServer().getPluginManager().registerEvents(new QuestListener(manager), this);
 
-        getLogger().info("BizCore V16 loaded!");
+        // 🔥 NOVÉ (PRÁCE)
+        getServer().getPluginManager().registerEvents(new JobListener(manager), this);
+
+        getLogger().info("BizCore FULL loaded!");
+    }
+
+    @Override
+    public void onDisable() {
+        saveConfig();
     }
 }
