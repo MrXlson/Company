@@ -1,10 +1,10 @@
-name: FirmaPlugin
-version: 1.0
+name: BizCore
+version: 5.0
 main: me.plugin.firma.FirmaPlugin
-api-version: 1.20
+api-version: 1.21
 author: MrXlson
 
 commands:
   firma:
-    description: Firma command
-    usage: /firma
+    description: BizCore command
+    
