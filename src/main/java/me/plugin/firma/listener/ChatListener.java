@@ -29,12 +29,12 @@ public class ChatListener implements Listener {
 
         if (action.equals("add")) {
             manager.addMember(p, msg);
-            p.sendMessage("§aHráč přidán!");
+            p.sendMessage("§aPřidán!");
         }
 
         if (action.equals("remove")) {
             manager.removeMember(p, msg);
-            p.sendMessage("§cHráč odebrán!");
+            p.sendMessage("§cOdebrán!");
         }
 
         ChatInputManager.remove(p.getUniqueId());
