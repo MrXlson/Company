@@ -1,6 +1,8 @@
 package me.plugin.firma.listener;
 
+import me.plugin.firma.gui.*;
 import me.plugin.firma.manager.FirmaManager;
+
 import org.bukkit.entity.Player;
 import org.bukkit.event.*;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -19,8 +21,44 @@ public class FirmaListener implements Listener {
         if (!(e.getWhoClicked() instanceof Player)) return;
 
         Player p = (Player) e.getWhoClicked();
+        String title = e.getView().getTitle();
 
-        if (e.getView().getTitle().equals("§aUpgrady")) {
+        // 🔒 ZABLOKUJE BRANÍ ITEMŮ V GUI
+        if (title.contains("BizCore") || title.contains("Menu") || title.contains("Firmy")) {
+            e.setCancelled(true);
+        }
+
+        // 🧠 HLAVNÍ MENU
+        if (title.equals("§6BizCore")) {
+
+            e.setCancelled(true);
+
+            switch (e.getSlot()) {
+
+                case 10:
+                    MembersGUI.open(p, manager);
+                    break;
+
+                case 12:
+                    JobsGUI.open(p, manager);
+                    break;
+
+                case 14:
+                    QuestGUI.open(p, manager);
+                    break;
+
+                case 16:
+                    UpgradeGUI.open(p, manager);
+                    break;
+
+                case 22:
+                    TopGUI.open(p, manager);
+                    break;
+            }
+        }
+
+        // 🛒 UPGRADY
+        if (title.equals("§aUpgrady")) {
 
             e.setCancelled(true);
 
