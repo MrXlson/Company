@@ -2,45 +2,36 @@ package me.plugin.firma;
 
 import me.plugin.firma.command.FirmaCommand;
 import me.plugin.firma.listener.ChatListener;
-import me.plugin.firma.listener.FirmaListener;
-import me.plugin.firma.listener.JobListener;
-import me.plugin.firma.listener.QuestListener;
+import me.plugin.firma.listener.InventoryClickListener;
 import me.plugin.firma.manager.FirmaManager;
-
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class FirmaPlugin extends JavaPlugin {
 
-    private FirmaManager manager;
+    private FirmaManager firmaManager;
 
     @Override
     public void onEnable() {
 
-        // 📦 config
-        saveDefaultConfig();
+        // ✅ Manager
+        firmaManager = new FirmaManager(this);
 
-        // 🧠 manager
-        manager = new FirmaManager(this);
+        // ✅ Command
+        getCommand("firma").setExecutor(new FirmaCommand(firmaManager));
 
-        // ⚙️ command
-        getCommand("firma").setExecutor(new FirmaCommand(manager));
+        // ✅ Listenery
+        getServer().getPluginManager().registerEvents(new ChatListener(firmaManager), this);
+        getServer().getPluginManager().registerEvents(new InventoryClickListener(firmaManager), this);
 
-        // 🎧 listenery
-        getServer().getPluginManager().registerEvents(new FirmaListener(manager), this);
-        getServer().getPluginManager().registerEvents(new ChatListener(manager), this);
-        getServer().getPluginManager().registerEvents(new QuestListener(manager), this);
-        getServer().getPluginManager().registerEvents(new JobListener(manager), this);
-
-        getLogger().info("§aBizCore plně načten!");
+        getLogger().info("BizCore plugin zapnut!");
     }
 
     @Override
     public void onDisable() {
-        saveConfig();
-        getLogger().info("§cBizCore vypnut!");
+        getLogger().info("BizCore plugin vypnut!");
     }
 
-    public FirmaManager getManager() {
-        return manager;
+    public FirmaManager getFirmaManager() {
+        return firmaManager;
     }
 }
