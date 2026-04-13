@@ -1,75 +1,54 @@
 package me.plugin.firma.listener;
 
-import me.plugin.firma.gui.*;
-import me.plugin.firma.manager.FirmaManager;
-import org.bukkit.entity.Player;
-import org.bukkit.event.*;
+import me.plugin.firma.FirmaPlugin;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 
 public class InventoryClickListener implements Listener {
 
-    private final FirmaManager manager;
+    private final FirmaPlugin plugin;
 
-    public InventoryClickListener(FirmaManager manager) {
-        this.manager = manager;
+    public InventoryClickListener(FirmaPlugin plugin) {
+        this.plugin = plugin;
     }
 
     @EventHandler
     public void onClick(InventoryClickEvent e) {
-
-        if (!(e.getWhoClicked() instanceof Player)) return;
-
-        Player p = (Player) e.getWhoClicked();
-
-        String title = e.getView().getTitle();
-
-        // 🔥 ZABRÁNÍ BRANÍ ITEMŮ
-        if (title.contains("BizCore") || title.contains("Firma") || title.contains("Členové")) {
+        if (e.getView().getTitle().contains("BizCore")) {
             e.setCancelled(true);
-        }
 
-        if (e.getCurrentItem() == null) return;
-        if (!e.getCurrentItem().hasItemMeta()) return;
+            if (e.getCurrentItem() == null) return;
 
-        String firma = manager.getFirma(p);
-        if (firma == null) return;
+            switch (e.getCurrentItem().getType()) {
 
-        // ===============================
-        // 🏢 MAIN GUI
-        // ===============================
-        if (title.contains("BizCore")) {
-
-            switch (e.getSlot()) {
-
-                case 11:
-                    JobsGUI.open(p, manager);
+                case PAPER:
+                    e.getWhoClicked().sendMessage("Info o firmě");
                     break;
 
-                case 13:
-                    UpgradeGUI.open(p, manager);
+                case DIAMOND_PICKAXE:
+                    e.getWhoClicked().sendMessage("Práce GUI");
                     break;
 
-                case 15:
-                    MembersGUI.open(p, manager);
-                    break;
-            }
-        }
-
-        // ===============================
-        // 👥 MEMBERS GUI
-        // ===============================
-        if (title.contains("Členové")) {
-
-            switch (e.getSlot()) {
-
-                case 26:
-                    p.sendMessage("§eNapiš jméno hráče do chatu pro přidání");
-                    me.plugin.firma.chat.ChatInputManager.set(p.getUniqueId(), "add");
+                case BOOK:
+                    e.getWhoClicked().sendMessage("Questy GUI");
                     break;
 
-                case 25:
-                    p.sendMessage("§eNapiš jméno hráče do chatu pro odebrání");
-                    me.plugin.firma.chat.ChatInputManager.set(p.getUniqueId(), "remove");
+                case CHEST:
+                    e.getWhoClicked().sendMessage("Members GUI");
+                    break;
+
+                case EMERALD:
+                    e.getWhoClicked().sendMessage("Upgrade GUI");
+                    break;
+
+                case NAME_TAG:
+                    plugin.getChatInputManager().waitFor(e.getWhoClicked().getUniqueId(), "rename");
+                    e.getWhoClicked().sendMessage("Napiš nový název firmy do chatu:");
+                    e.getWhoClicked().closeInventory();
+                    break;
+
+                default:
                     break;
             }
         }
