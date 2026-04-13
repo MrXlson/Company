@@ -1,6 +1,8 @@
 package me.plugin.firma;
 
 import me.plugin.firma.command.FirmaCommand;
+import me.plugin.firma.listener.InventoryListener;
+import me.plugin.firma.listener.JobListener;
 import me.plugin.firma.manager.FirmaManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -18,7 +20,12 @@ public class FirmaPlugin extends JavaPlugin {
         manager = new FirmaManager(this);
         manager.load();
 
+        // COMMAND
         getCommand("firma").setExecutor(new FirmaCommand(manager));
+
+        // LISTENERS
+        getServer().getPluginManager().registerEvents(new InventoryListener(), this);
+        getServer().getPluginManager().registerEvents(new JobListener(), this);
 
         getLogger().info("BizCore PRO zapnut!");
     }
