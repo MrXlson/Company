@@ -1,66 +1,31 @@
 package me.plugin.firma.listener;
 
-import me.plugin.firma.chat.ChatInputManager;
-import me.plugin.firma.manager.FirmaManager;
-import org.bukkit.Bukkit;
-import org.bukkit.entity.Player;
-import org.bukkit.event.*;
+import me.plugin.firma.FirmaPlugin;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 
 public class ChatListener implements Listener {
 
-    private final FirmaManager manager;
+    private final FirmaPlugin plugin;
 
-    public ChatListener(FirmaManager manager) {
-        this.manager = manager;
+    public ChatListener(FirmaPlugin plugin) {
+        this.plugin = plugin;
     }
 
     @EventHandler
     public void onChat(AsyncPlayerChatEvent e) {
+        if (plugin.getChatInputManager().isWaiting(e.getPlayer().getUniqueId())) {
+            e.setCancelled(true);
 
-        Player p = e.getPlayer();
+            String type = plugin.getChatInputManager().getType(e.getPlayer().getUniqueId());
+            String message = e.getMessage();
 
-        if (!ChatInputManager.has(p.getUniqueId())) return;
-
-        e.setCancelled(true);
-
-        String type = ChatInputManager.get(p.getUniqueId());
-        String msg = e.getMessage();
-
-        String firma = manager.getFirma(p);
-        if (firma == null) return;
-
-        if (type.equals("add")) {
-
-            Player target = Bukkit.getPlayer(msg);
-
-            if (target == null) {
-                p.sendMessage("§cHráč není online!");
-            } else {
-                manager.addMember(firma, target.getUniqueId());
-                p.sendMessage("§aPřidán!");
+            if (type.equalsIgnoreCase("rename")) {
+                e.getPlayer().sendMessage("Firma přejmenována na: " + message);
             }
 
-        } else if (type.equals("remove")) {
-
-            Player target = Bukkit.getPlayer(msg);
-
-            if (target == null) {
-                p.sendMessage("§cHráč není online!");
-            } else {
-
-                String role = manager.getRole(firma, target.getUniqueId());
-
-                if (role.equals("OWNER")) {
-                    p.sendMessage("§cNemůžeš odebrat ownera!");
-                    return;
-                }
-
-                manager.removeMember(firma, target.getUniqueId());
-                p.sendMessage("§cOdebrán!");
-            }
+            plugin.getChatInputManager().set(e.getPlayer().getUniqueId(), message);
         }
-
-        ChatInputManager.remove(p.getUniqueId());
     }
 }
