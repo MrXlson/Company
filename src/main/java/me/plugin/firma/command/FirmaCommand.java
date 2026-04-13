@@ -1,8 +1,8 @@
 package me.plugin.firma.command;
 
-import me.plugin.firma.gui.*;
+import me.plugin.firma.gui.FirmaGUI;
 import me.plugin.firma.manager.*;
-
+import org.bukkit.Bukkit;
 import org.bukkit.command.*;
 import org.bukkit.entity.Player;
 
@@ -17,33 +17,33 @@ public class FirmaCommand implements CommandExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
 
-        if (!(sender instanceof Player)) return true;
-        Player player = (Player) sender;
+        Player p = (Player) sender;
 
         if (args.length == 0) {
-            boolean has = manager.hasCompany(player.getUniqueId());
-            String name = has ? manager.getCompany(player.getUniqueId()) : null;
-            FirmaGUI.openMainGUI(player, has, name, manager);
+            FirmaGUI.openMainGUI(p, manager.hasCompany(p.getUniqueId()), manager.getCompany(p.getUniqueId()), manager);
             return true;
         }
 
-        if (args[0].equalsIgnoreCase("top")) {
-            TopGUI.open(player, manager);
-            return true;
+        if (args[0].equalsIgnoreCase("invite") && args.length > 1) {
+            Player target = Bukkit.getPlayer(args[1]);
+
+            if (target == null) return true;
+
+            String f = manager.getCompany(p.getUniqueId());
+            InviteManager.sendInvite(target.getUniqueId(), f);
+
+            target.sendMessage("§ePozvánka do firmy: " + f);
         }
 
-        if (args[0].equalsIgnoreCase("shop")) {
-            UpgradeGUI.open(player, manager);
-            return true;
-        }
+        if (args[0].equalsIgnoreCase("accept")) {
+            String f = InviteManager.getInvite(p.getUniqueId());
 
-        if (args[0].equalsIgnoreCase("war") && args.length > 1) {
-            String my = manager.getCompany(player.getUniqueId());
-            String target = args[1];
+            if (f == null) return true;
 
-            WarManager.startWar(my, target);
-            player.sendMessage("§cVyhlásil jsi válku!");
-            return true;
+            manager.addMember(f, p.getUniqueId());
+            InviteManager.remove(p.getUniqueId());
+
+            p.sendMessage("§aPřipojen!");
         }
 
         return true;
