@@ -1,0 +1,23 @@
+package me.plugin.firma.gui;
+
+import me.plugin.firma.company.Company;
+import org.bukkit.*;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.*;
+
+import java.util.List;
+
+public class TopGUI {
+
+    public static void open(Player p, List<Company> list) {
+
+        Inventory inv = Bukkit.createInventory(null, 27, "§6TOP");
+
+        int i = 0;
+        for (Company c : list) {
+            inv.setItem(i++, new ItemStack(Material.EMERALD));
+        }
+
+        p.openInventory(inv);
+    }
+}
