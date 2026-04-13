@@ -1,6 +1,7 @@
 package me.plugin.firma.listener;
 
-import me.plugin.firma.gui.*;
+import me.plugin.firma.gui.JobsGUI;
+import me.plugin.firma.gui.MembersGUI;
 import me.plugin.firma.manager.FirmaManager;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -25,30 +26,18 @@ public class InventoryListener implements Listener {
 
         if (title == null) return;
 
-        // ❌ blokace brání itemů
         if (title.contains("BizCore") || title.contains("Práce") || title.contains("Členové")) {
             e.setCancelled(true);
         }
 
         if (e.getCurrentItem() == null) return;
 
-        // =========================
-        // 🏠 MAIN GUI
-        // =========================
         if (title.equals("§6BizCore")) {
 
             switch (e.getSlot()) {
 
                 case 11:
                     JobsGUI.open(p, manager);
-                    break;
-
-                case 13:
-                    UpgradeGUI.open(p, manager);
-                    break;
-
-                case 15:
-                    QuestGUI.open(p, manager);
                     break;
 
                 case 22:
