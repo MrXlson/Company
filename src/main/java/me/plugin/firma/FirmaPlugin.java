@@ -1,21 +1,24 @@
 package me.plugin.firma;
 
-import me.plugin.firma.company.CompanyManager;
+import me.plugin.firma.company.*;
 import me.plugin.firma.data.DataManager;
-import me.plugin.firma.listener.GUIListener;
 import me.plugin.firma.gui.MainGUI;
+import me.plugin.firma.listener.GUIListener;
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.command.*;
 import org.bukkit.entity.Player;
-import org.bukkit.plugin.RegisteredServiceProvider;
+import org.bukkit.plugin.*;
 import org.bukkit.plugin.java.JavaPlugin;
+
+import java.util.*;
 
 public class FirmaPlugin extends JavaPlugin implements CommandExecutor {
 
     private static Economy econ;
+    private CompanyManager manager;
+    private DataManager data;
 
-    private CompanyManager companyManager;
-    private DataManager dataManager;
+    private final Map<UUID, Long> cooldown = new HashMap<>();
 
     @Override
     public void onEnable() {
@@ -23,89 +26,88 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor {
         saveDefaultConfig();
         setupEconomy();
 
-        companyManager = new CompanyManager();
-        dataManager = new DataManager(this);
+        manager = new CompanyManager();
+        data = new DataManager(this);
 
-        companyManager.setCompanies(dataManager.load());
+        manager.setCompanies(data.load());
 
-        // ✅ COMMAND FIX
-        if (getCommand("firma") != null) {
-            getCommand("firma").setExecutor(this);
-        }
+        getCommand("firma").setExecutor(this);
 
-        // ✅ LISTENER
         getServer().getPluginManager().registerEvents(
-                new GUIListener(companyManager, this),
+                new GUIListener(manager, this),
                 this
         );
 
-        // AUTO SAVE
-        getServer().getScheduler().runTaskTimerAsynchronously(this, () -> {
-            dataManager.saveAsync(companyManager.getCompanies());
-        }, 1200, 1200);
+        getServer().getScheduler().runTaskTimerAsynchronously(this, () ->
+                data.save(manager.getCompanies()), 1200, 1200);
 
-        getLogger().info("BizCore ENABLED");
+        getLogger().info("BizCore v8 ENABLED");
     }
 
     @Override
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
 
-        // 🔥 DEBUG (můžeš pak smazat)
-        getLogger().info("COMMAND /firma TRIGGERED");
-
         if (!(sender instanceof Player p)) return true;
 
-        var c = companyManager.getCompany(p);
+        Company c = manager.getCompany(p);
 
-        // GUI OPEN
         if (args.length == 0) {
+            if (c == null) {
+                p.sendMessage("§cNevlastníte firmu, prvně si ji založte §e/firma create");
+                return true;
+            }
             MainGUI.open(p, c);
             return true;
         }
 
-        // CREATE
         if (args[0].equalsIgnoreCase("create")) {
 
-            if (c != null) {
-                p.sendMessage("§cUž máš firmu!");
-                return true;
-            }
-
-            if (args.length < 2) {
-                p.sendMessage("§cPoužití: /firma create <name>");
-                return true;
-            }
+            if (c != null) return true;
 
             double cost = getConfig().getDouble("economy.create-cost");
 
             if (econ.getBalance(p) < cost) {
-                p.sendMessage("§cNemáš dost peněz!");
+                p.sendMessage("§cNemáš dost peněz! §7- Cena: §e" + cost);
                 return true;
             }
 
             econ.withdrawPlayer(p, cost);
 
-            companyManager.createCompany(args[1], p);
-
+            manager.createCompany(args[1], p);
             p.sendMessage("§aFirma vytvořena!");
-            return true;
         }
 
-        // WORK
         if (args[0].equalsIgnoreCase("work")) {
 
-            if (c == null) {
-                p.sendMessage("§cNemáš firmu!");
-                return true;
+            if (c == null) return true;
+
+            long cd = getConfig().getLong("jobs.cooldown");
+
+            if (cooldown.containsKey(p.getUniqueId())) {
+                if (System.currentTimeMillis() - cooldown.get(p.getUniqueId()) < cd) {
+                    p.sendMessage("§cPočkej!");
+                    return true;
+                }
             }
 
-            double reward = getConfig().getDouble("jobs.reward");
+            cooldown.put(p.getUniqueId(), System.currentTimeMillis());
 
-            c.balance += reward;
+            double reward = getConfig().getDouble("jobs.reward");
+            double bonus = c.level * getConfig().getDouble("levels.bonus-per-level");
+
+            c.balance += reward + bonus;
             c.addXP(25, getConfig().getInt("levels.xp-per-level"));
 
-            p.sendMessage("§aPráce dokončena!");
-            return true;
+            p.sendMessage("§aPráce hotová!");
+        }
+
+        if (args[0].equalsIgnoreCase("invite")) {
+            Player t = getServer().getPlayer(args[1]);
+            if (t != null) manager.invite(p, t);
+        }
+
+        if (args[0].equalsIgnoreCase("accept")) {
+            manager.accept(p);
         }
 
         return true;
@@ -114,7 +116,6 @@ public class FirmaPlugin extends JavaPlugin implements CommandExecutor {
     private void setupEconomy() {
         RegisteredServiceProvider<Economy> rsp =
                 getServer().getServicesManager().getRegistration(Economy.class);
-
         if (rsp != null) econ = rsp.getProvider();
     }
 
