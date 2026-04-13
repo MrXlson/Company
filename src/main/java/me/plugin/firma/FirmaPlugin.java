@@ -1,37 +1,34 @@
 package me.plugin.firma;
 
-import me.plugin.firma.command.FirmaCommand;
+import me.plugin.firma.chat.ChatInputManager;
 import me.plugin.firma.listener.ChatListener;
 import me.plugin.firma.listener.InventoryClickListener;
-import me.plugin.firma.manager.FirmaManager;
+import me.plugin.firma.listener.FirmaListener;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class FirmaPlugin extends JavaPlugin {
 
-    private FirmaManager firmaManager;
+    private static FirmaPlugin instance;
+    private ChatInputManager chatInputManager;
 
     @Override
     public void onEnable() {
+        instance = this;
 
-        // ✅ Manager
-        firmaManager = new FirmaManager(this);
+        chatInputManager = new ChatInputManager();
 
-        // ✅ Command
-        getCommand("firma").setExecutor(new FirmaCommand(firmaManager));
+        getServer().getPluginManager().registerEvents(new InventoryClickListener(this), this);
+        getServer().getPluginManager().registerEvents(new ChatListener(this), this);
+        getServer().getPluginManager().registerEvents(new FirmaListener(this), this);
 
-        // ✅ Listenery
-        getServer().getPluginManager().registerEvents(new ChatListener(firmaManager), this);
-        getServer().getPluginManager().registerEvents(new InventoryClickListener(firmaManager), this);
-
-        getLogger().info("BizCore plugin zapnut!");
+        getLogger().info("FirmaPlugin zapnut!");
     }
 
-    @Override
-    public void onDisable() {
-        getLogger().info("BizCore plugin vypnut!");
+    public static FirmaPlugin getInstance() {
+        return instance;
     }
 
-    public FirmaManager getFirmaManager() {
-        return firmaManager;
+    public ChatInputManager getChatInputManager() {
+        return chatInputManager;
     }
 }
