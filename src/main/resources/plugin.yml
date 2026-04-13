@@ -1,10 +1,8 @@
 name: BizCore
-version: 5.0
-main: me.plugin.firma.FirmaPlugin
-api-version: 1.21
+version: 1.0
+main: me.plugin.firma.Main
+api-version: 1.20
 
 commands:
   firma:
-    description: BizCore main command
-    usage: /firma
-    aliases: [biz, company]
+  firmatop:
